@@ -40,6 +40,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body;
+      
+      console.log("PATCH /api/training-sessions received:", JSON.stringify(updates, null, 2));
+      console.log("completedAt type and value:", typeof updates.completedAt, updates.completedAt);
+      
       const session = await storage.updateTrainingSession(id, updates);
       res.json(session);
     } catch (error) {
