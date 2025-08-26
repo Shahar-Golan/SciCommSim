@@ -51,7 +51,7 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: openaiMessages,
-      max_tokens: 150,
+      max_completion_tokens: 150,
       temperature: 0.8,
     });
 
