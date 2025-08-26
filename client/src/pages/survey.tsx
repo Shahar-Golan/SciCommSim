@@ -34,7 +34,6 @@ export default function Survey({ sessionId, onNext }: SurveyProps) {
     setIsSubmitting(true);
     try {
       await apiRequest("PATCH", `/api/training-sessions/${sessionId}`, {
-        completedAt: new Date().toISOString(),
         helpfulnessRating: parseInt(helpfulnessRating),
         experienceFeedback: experienceFeedback.trim() || null,
       });
