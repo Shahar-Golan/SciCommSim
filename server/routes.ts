@@ -146,9 +146,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Feedback generation
   app.post("/api/feedback", async (req, res) => {
+    console.log("Feedback API called with:", req.body);
     try {
       const { conversationId, messages } = req.body;
+      console.log("Generating feedback for conversation:", conversationId, "with", messages?.length, "messages");
+      
       const feedbackData = await generateFeedback(messages);
+      console.log("Generated feedback data:", feedbackData);
       
       const feedback = await storage.createFeedback({
         conversationId,
@@ -161,6 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         detailedFeedback: feedbackData.detailedFeedback,
       });
       
+      console.log("Saved feedback to database:", feedback);
       res.json(feedback);
     } catch (error) {
       console.error("Feedback generation error:", error);
