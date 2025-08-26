@@ -22,14 +22,17 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
   }, [conversationId]);
 
   const generateFeedback = async () => {
+    console.log("generateFeedback called with conversationId:", conversationId);
     setIsLoading(true);
     try {
       // First, get the conversation to extract messages
+      console.log("Fetching conversation...");
       const conversationResponse = await apiRequest("GET", `/api/conversations/${conversationId}`);
       if (!conversationResponse.ok) {
         throw new Error("Failed to fetch conversation");
       }
       const conversation = await conversationResponse.json();
+      console.log("Got conversation:", conversation);
       
       // Generate feedback based on conversation messages
       console.log("About to call feedback API with:", {
