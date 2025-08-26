@@ -38,6 +38,8 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
       });
       
       if (!feedbackResponse.ok) {
+        const errorText = await feedbackResponse.text();
+        console.error("Feedback API error:", errorText);
         throw new Error("Failed to generate feedback");
       }
       
