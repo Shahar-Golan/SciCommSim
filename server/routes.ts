@@ -41,8 +41,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
-      console.log("PATCH /api/training-sessions received:", JSON.stringify(updates, null, 2));
-      console.log("completedAt type and value:", typeof updates.completedAt, updates.completedAt);
       
       const session = await storage.updateTrainingSession(id, updates);
       res.json(session);
@@ -174,13 +172,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const feedback = await storage.createFeedback({
         conversationId,
-        overallScore: feedbackData.overallScore.toString(),
-        clarityScore: feedbackData.clarityScore.toString(),
-        questionHandlingScore: feedbackData.questionHandlingScore.toString(),
-        engagementScore: feedbackData.engagementScore.toString(),
-        pacingScore: feedbackData.pacingScore.toString(),
+        strengths: feedbackData.strengths,
+        improvements: feedbackData.improvements,
         recommendations: feedbackData.recommendations,
-        detailedFeedback: feedbackData.detailedFeedback,
       });
       
       console.log("Saved feedback to database:", feedback);

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, RotateCcw } from "lucide-react";
-import FeedbackCharts from "@/components/feedback-charts";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Feedback, Message } from "@shared/schema";
@@ -39,18 +38,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         throw new Error("Failed to fetch conversation");
       }
       
-      // Debug: check what we're actually getting
-      const responseText = await conversationResponse.text();
-      console.log("Raw response text:", responseText.substring(0, 200));
-      
-      let conversation;
-      try {
-        conversation = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("JSON parse error:", parseError);
-        console.error("Response was:", responseText);
-        throw new Error("Invalid JSON response from conversation API");
-      }
+      const conversation = await conversationResponse.json();
       console.log("Got conversation:", conversation);
       
       // Generate feedback based on conversation messages
@@ -128,7 +116,45 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         </p>
       </div>
 
-      <FeedbackCharts feedback={feedback} />
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Strengths */}
+        {feedback.strengths && (
+          <div className="bg-green-50 rounded-xl shadow-sm border border-green-200 p-8">
+            <h3 className="text-xl font-semibold text-green-800 mb-4 flex items-center">
+              <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+              What You Did Well
+            </h3>
+            <p className="text-green-700 leading-relaxed">{feedback.strengths}</p>
+          </div>
+        )}
+
+        {/* Points for Improvement */}
+        {feedback.improvements && (
+          <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-200 p-8">
+            <h3 className="text-xl font-semibold text-blue-800 mb-4 flex items-center">
+              <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+              Points for Improvement
+            </h3>
+            <p className="text-blue-700 leading-relaxed">{feedback.improvements}</p>
+          </div>
+        )}
+
+        {/* Recommendations */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+          <h3 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
+            <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
+            Specific Recommendations
+          </h3>
+          <ul className="space-y-3">
+            {feedback.recommendations?.map((rec, index) => (
+              <li key={index} className="flex items-start">
+                <div className="w-2 h-2 bg-purple-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <span className="text-slate-700">{rec}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
 
       <div className="text-center">
         <Button 

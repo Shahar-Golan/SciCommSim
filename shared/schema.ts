@@ -49,13 +49,9 @@ export const conversations = pgTable("conversations", {
 export const feedback = pgTable("feedback", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   conversationId: uuid("conversation_id").references(() => conversations.id).notNull(),
-  overallScore: decimal("overall_score", { precision: 4, scale: 2 }), // 0-100
-  clarityScore: decimal("clarity_score", { precision: 4, scale: 2 }),
-  questionHandlingScore: decimal("question_handling_score", { precision: 4, scale: 2 }),
-  engagementScore: decimal("engagement_score", { precision: 4, scale: 2 }),
-  pacingScore: decimal("pacing_score", { precision: 4, scale: 2 }),
+  strengths: text("strengths"),
+  improvements: text("improvements"),
   recommendations: jsonb("recommendations").$type<string[]>().default([]),
-  detailedFeedback: text("detailed_feedback"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

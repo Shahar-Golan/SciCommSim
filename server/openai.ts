@@ -64,24 +64,23 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
 }
 
 export async function generateFeedback(messages: Message[]): Promise<{
-  overallScore: number;
-  clarityScore: number;
-  questionHandlingScore: number;
-  engagementScore: number;
-  pacingScore: number;
+  strengths: string;
+  improvements: string;
   recommendations: string[];
-  detailedFeedback: string;
 }> {
   try {
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
-    const systemPrompt = feedbackPrompt?.prompt || `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson. Evaluate based on these criteria:
+    const systemPrompt = feedbackPrompt?.prompt || `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson.
 
-1. Clarity & Simplicity (0-10): How well did the student explain complex concepts in simple terms?
-2. Question Handling (0-10): How effectively did the student address questions and concerns?
-3. Engagement & Empathy (0-10): How well did the student connect with the audience?
-4. Pacing & Structure (0-10): How well-organized and appropriately paced was the explanation?
+Provide feedback in two distinct parts:
+1. STRENGTHS: What the student did well in their communication
+2. POINTS FOR IMPROVEMENT: Specific areas where the student can enhance their science communication skills
 
-Provide scores out of 10 for each category, an overall score (average), 3-5 specific recommendations for improvement, and detailed feedback paragraph. Respond in JSON format.`;
+Do NOT provide numerical scores or percentages. Focus on qualitative feedback that helps the student understand their communication effectiveness.
+
+Please provide your analysis as detailed, constructive feedback that will help the student improve their ability to communicate complex scientific concepts to general audiences. Be specific about communication techniques, clarity, engagement strategies, and how well they addressed concerns.
+
+Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`;
 
     const conversationText = messages.map(msg => 
       `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`
@@ -100,29 +99,27 @@ Provide scores out of 10 for each category, an overall score (average), 3-5 spec
     const result = JSON.parse(response.choices[0].message.content || "{}");
     
     return {
-      overallScore: Math.min(100, Math.max(0, (result.overallScore || result.clarity_score || 7) * 10)),
-      clarityScore: Math.min(100, Math.max(0, (result.clarityScore || result.clarity_score || 7) * 10)),
-      questionHandlingScore: Math.min(100, Math.max(0, (result.questionHandlingScore || result.question_handling_score || 7) * 10)),
-      engagementScore: Math.min(100, Math.max(0, (result.engagementScore || result.engagement_score || 7) * 10)),
-      pacingScore: Math.min(100, Math.max(0, (result.pacingScore || result.pacing_score || 7) * 10)),
-      recommendations: result.recommendations || ["Practice using more analogies to explain complex concepts", "Pause more frequently to check for understanding", "Ask the listener about their own experiences"],
-      detailedFeedback: result.detailedFeedback || result.detailed_feedback || "Good effort in explaining your research. Focus on using simpler language and engaging more with your audience's questions."
+      strengths: result.strengths || "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
+      improvements: result.improvements || "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
+      recommendations: result.recommendations || [
+        "Use more analogies and everyday examples to explain technical concepts",
+        "Check for understanding by asking if your explanations make sense",
+        "Break down complex ideas into smaller, digestible parts",
+        "Practice explaining your research to friends or family members"
+      ]
     };
   } catch (error) {
     console.error("Feedback generation error:", error);
     // Return default feedback instead of throwing
     return {
-      overallScore: 70,
-      clarityScore: 70,
-      questionHandlingScore: 65,
-      engagementScore: 75,
-      pacingScore: 70,
+      strengths: "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
+      improvements: "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
       recommendations: [
-        "Practice using more analogies to explain complex concepts",
-        "Pause more frequently to check for understanding",
-        "Ask the listener about their own experiences to make connections"
-      ],
-      detailedFeedback: "Your explanation showed good knowledge of your research. Continue working on making complex concepts more accessible to general audiences."
+        "Use more analogies and everyday examples to explain technical concepts",
+        "Check for understanding by asking if your explanations make sense",
+        "Break down complex ideas into smaller, digestible parts",
+        "Practice explaining your research to friends or family members"
+      ]
     };
   }
 }
@@ -132,19 +129,30 @@ export async function initializeDefaultPrompts() {
   try {
     await storage.upsertAiPrompt({
       name: "layperson_role",
-      prompt: `You are playing the role of an elderly layperson who is curious about science but has no technical background. You are interested in learning about the student's research but will ask questions that a regular person would ask. You might express concerns, ask for clarification, or relate the research to everyday experiences. Be friendly, curious, and engaging, but don't hesitate to say when something is confusing. Ask follow-up questions and show genuine interest. Keep your responses conversational and not too long.`
+      prompt: `You will play the role of an elderly layperson who is curious about the research but has concerns about its potential consequences and ethical implications.
+
+• DO NOT BE OVERENTHUSIASTIC. While you are interested in my research and genuinely want to learn more about it, there's no need to offer compliments after every point I make. Instead, focus on engaging thoughtfully by raising concerns during the conversation. Highlight potential ethical issues or negative implications that may arise from the research.
+
+• When asking questions or raising concerns, focus on one question at a time rather than presenting multiple questions at once.
+
+• DO NOT repeat my words with phrases like, "If I understand correctly, what you meant is…" – it's unnecessary and just drags out the conversation.
+
+Keep your responses conversational, focused, and not too long. Ask probing questions about potential risks, ethical concerns, or unintended consequences rather than just expressing enthusiasm.`
     });
 
     await storage.upsertAiPrompt({
       name: "feedback_analysis",
-      prompt: `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson. Evaluate based on these criteria:
+      prompt: `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson.
 
-1. Clarity & Simplicity (0-10): How well did the student explain complex concepts in simple terms?
-2. Question Handling (0-10): How effectively did the student address questions and concerns?
-3. Engagement & Empathy (0-10): How well did the student connect with the audience?
-4. Pacing & Structure (0-10): How well-organized and appropriately paced was the explanation?
+Provide feedback in two distinct parts:
+1. STRENGTHS: What the student did well in their communication
+2. POINTS FOR IMPROVEMENT: Specific areas where the student can enhance their science communication skills
 
-Provide scores out of 10 for each category, an overall score (average), 3-5 specific recommendations for improvement, and detailed feedback paragraph. Respond in JSON format with keys: overallScore, clarityScore, questionHandlingScore, engagementScore, pacingScore, recommendations (array), detailedFeedback.`
+Do NOT provide numerical scores or percentages. Focus on qualitative feedback that helps the student understand their communication effectiveness.
+
+Please provide your analysis as detailed, constructive feedback that will help the student improve their ability to communicate complex scientific concepts to general audiences. Be specific about communication techniques, clarity, engagement strategies, and how well they addressed concerns.
+
+Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`
     });
   } catch (error) {
     console.error("Failed to initialize default prompts:", error);
