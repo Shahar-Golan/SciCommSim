@@ -127,7 +127,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const handleEndConversation = async () => {
     try {
       await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
-        endedAt: new Date(),
+        endedAt: new Date().toISOString(),
         transcript: messages,
         duration: Math.floor((Date.now() - new Date().getTime()) / 1000), // Approximate duration
       });
