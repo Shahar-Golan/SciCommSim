@@ -37,9 +37,17 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         messages: conversation.transcript || [],
       });
       
-      const feedbackResponse = await apiRequest("POST", "/api/feedback", {
-        conversationId,
-        messages: conversation.transcript || [],
+      // Use raw fetch instead of apiRequest to handle errors manually
+      const feedbackResponse = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId,
+          messages: conversation.transcript || [],
+        }),
+        credentials: "include",
       });
       
       console.log("Feedback response status:", feedbackResponse.status, feedbackResponse.statusText);
