@@ -74,12 +74,31 @@ export class DatabaseStorage implements IStorage {
     // Convert string timestamps to Date objects if needed
     const processedUpdates = { ...updates };
     
-    if (updates.completedAt && typeof updates.completedAt === 'string') {
-      processedUpdates.completedAt = new Date(updates.completedAt);
+    console.log("updateTrainingSession received updates:", updates);
+    console.log("completedAt type:", typeof updates.completedAt, "value:", updates.completedAt);
+    
+    if (updates.completedAt) {
+      if (typeof updates.completedAt === 'string') {
+        processedUpdates.completedAt = new Date(updates.completedAt);
+        console.log("Converted string to Date:", processedUpdates.completedAt);
+      } else if (updates.completedAt instanceof Date) {
+        processedUpdates.completedAt = updates.completedAt;
+        console.log("Already a Date:", processedUpdates.completedAt);
+      } else {
+        // Force conversion for any other type
+        processedUpdates.completedAt = new Date(String(updates.completedAt));
+        console.log("Forced conversion to Date:", processedUpdates.completedAt);
+      }
     }
-    if (updates.startedAt && typeof updates.startedAt === 'string') {
-      processedUpdates.startedAt = new Date(updates.startedAt);
+    if (updates.startedAt) {
+      if (typeof updates.startedAt === 'string') {
+        processedUpdates.startedAt = new Date(updates.startedAt);
+      } else if (!(updates.startedAt instanceof Date)) {
+        processedUpdates.startedAt = new Date(String(updates.startedAt));
+      }
     }
+    
+    console.log("Final processedUpdates:", processedUpdates);
     
     const [session] = await db
       .update(trainingSessions)
