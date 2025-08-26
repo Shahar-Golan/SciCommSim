@@ -86,6 +86,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/conversations/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const conversation = await storage.getConversation(id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
   app.get("/api/conversations/session/:sessionId", async (req, res) => {
     try {
       const { sessionId } = req.params;
