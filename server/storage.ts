@@ -16,7 +16,7 @@ import {
   type InsertAiPrompt,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Students
@@ -97,11 +97,46 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
-  async getAllTrainingSessions(): Promise<TrainingSession[]> {
-    return await db
-      .select()
+  async getAllTrainingSessions(): Promise<(TrainingSession & { studentName: string; conversations: Conversation[]; feedbacks: any[] })[]> {
+    const sessions = await db
+      .select({
+        id: trainingSessions.id,
+        studentId: trainingSessions.studentId,
+        startedAt: trainingSessions.startedAt,
+        completedAt: trainingSessions.completedAt,
+        helpfulnessRating: trainingSessions.helpfulnessRating,
+        experienceFeedback: trainingSessions.experienceFeedback,
+        studentName: students.name,
+      })
       .from(trainingSessions)
+      .leftJoin(students, eq(trainingSessions.studentId, students.id))
       .orderBy(desc(trainingSessions.startedAt));
+
+    // Get conversations and feedback for each session
+    const sessionsWithDetails = await Promise.all(
+      sessions.map(async (session) => {
+        const sessionConversations = await db
+          .select()
+          .from(conversations)
+          .where(eq(conversations.sessionId, session.id))
+          .orderBy(conversations.conversationNumber);
+
+        const conversationIds = sessionConversations.map(c => c.id);
+        const sessionFeedbacks = conversationIds.length > 0 ? await db
+          .select()
+          .from(feedback)
+          .where(sql`${feedback.conversationId} = ANY(${conversationIds})`) : [];
+
+        return {
+          ...session,
+          studentName: session.studentName || 'Unknown Student',
+          conversations: sessionConversations,
+          feedbacks: sessionFeedbacks,
+        };
+      })
+    );
+
+    return sessionsWithDetails;
   }
 
   async createConversation(conversationData: InsertConversation): Promise<Conversation> {
