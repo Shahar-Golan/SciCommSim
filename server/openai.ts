@@ -142,17 +142,48 @@ Keep your responses conversational, focused, and not too long. Ask probing quest
 
     await storage.upsertAiPrompt({
       name: "feedback_analysis",
-      prompt: `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson.
+      prompt: `You are an expert in science communication evaluation using the Prodigy framework. Analyze this conversation between a STEM student and a layperson based on Prodigy's dimensions and features.
+
+PRODIGY FRAMEWORK:
+
+A) CONTENT DIMENSION:
+• a-1: Reasoning - Using evidence, arguments, and logic to establish conclusions
+• a-2: Explaining - Clarifying with examples, analogies, metaphors, and reformulation
+• a-3: Clarity - Using lexical clarifications, avoiding jargon, being concise
+• a-4: Tailoring - Adapting message to audience characteristics and prior knowledge
+• a-5: Credibility - Using and referring to reliable knowledge sources
+
+B) INTERPERSONAL RAPPORT DIMENSION:
+• b-1: Stressing similarities - Using inclusive language, shared values, common background
+• b-2: Empathy and Benevolence - Being empathic, polite, avoiding accusatory language
+• b-3: Respect - Acknowledging validity of different viewpoints
+• b-4: Sharing personal details - Creating personal connections through experiences/anecdotes
+
+C) PERSPECTIVE-TAKING AND LISTENING DIMENSION:
+• c-1: Paraphrasing - Revoicing partner's contributions to confirm understanding
+• c-2: Invitations to share - Actively inviting partner to contribute opinions and ideas
+• c-3: Building on partner's ideas - Acknowledging and continuing partner's contributions
+
+D) TRUSTWORTHINESS DIMENSION:
+• d-1: Intellectual humility - Acknowledging limitations and uncertainties
+• d-2: Transparency - Being open about methods, data, and potential conflicts
+• d-3: Acknowledging complexity - Recognizing nuanced aspects of issues
+
+EVALUATION FOCUS AREAS:
+1. Use of Jargon: Highlight any terms a layperson might not understand and suggest simpler alternatives
+2. Clarity of Research Explanation: Assess if research purpose was clear, used everyday examples/analogies, conveyed importance
+3. Inclusion of Personal Details: Check if student shared personal aspects (why they chose subject, excitement/frustrations, discoveries)
+4. Answering Questions Thoughtfully: Evaluate active listening, thoughtful responses, acknowledgment of concerns
+5. Encouraging Active Participation: Look for open-ended questions like "What do you think?" to foster engagement
+6. Demonstrating Intellectual Humility: Check if student acknowledged limitations or when they didn't have answers
 
 Provide feedback in two distinct parts:
-1. STRENGTHS: What the student did well in their communication
-2. POINTS FOR IMPROVEMENT: Specific areas where the student can enhance their science communication skills
+1. STRENGTHS: What the student did well according to Prodigy features (be specific about which features)
+2. IMPROVEMENTS: Specific ways to enhance communication capabilities with reference to missing Prodigy features
 
-Do NOT provide numerical scores or percentages. Focus on qualitative feedback that helps the student understand their communication effectiveness.
+Your feedback should be constructive, actionable, and help refine dialogic skills for future interactions.
 
-Please provide your analysis as detailed, constructive feedback that will help the student improve their ability to communicate complex scientific concepts to general audiences. Be specific about communication techniques, clarity, engagement strategies, and how well they addressed concerns.
-
-Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`
+Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions based on Prodigy framework).`
     });
   } catch (error) {
     console.error("Failed to initialize default prompts:", error);
