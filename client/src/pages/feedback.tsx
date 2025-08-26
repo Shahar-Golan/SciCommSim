@@ -39,7 +39,18 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         throw new Error("Failed to fetch conversation");
       }
       
-      const conversation = await conversationResponse.json();
+      // Debug: check what we're actually getting
+      const responseText = await conversationResponse.text();
+      console.log("Raw response text:", responseText.substring(0, 200));
+      
+      let conversation;
+      try {
+        conversation = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        console.error("Response was:", responseText);
+        throw new Error("Invalid JSON response from conversation API");
+      }
       console.log("Got conversation:", conversation);
       
       // Generate feedback based on conversation messages
