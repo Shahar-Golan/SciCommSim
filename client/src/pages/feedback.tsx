@@ -27,7 +27,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
     try {
       // First, get the conversation to extract messages
       console.log("Fetching conversation...");
-      const conversationResponse = await fetch(`/api/conversations/${conversationId}`, {
+      const conversationResponse = await fetch(`http://localhost:5000/api/conversations/${conversationId}`, {
         credentials: "include",
       });
       
