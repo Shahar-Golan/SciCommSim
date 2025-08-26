@@ -178,12 +178,12 @@ EVALUATION FOCUS AREAS:
 6. Demonstrating Intellectual Humility: Check if student acknowledged limitations or when they didn't have answers
 
 Provide feedback in two distinct parts:
-1. STRENGTHS: What the student did well according to Prodigy features (be specific about which features)
-2. IMPROVEMENTS: Specific ways to enhance communication capabilities with reference to missing Prodigy features
+1. STRENGTHS: What the student did well in their communication (use natural language, do not mention specific Prodigy feature codes)
+2. IMPROVEMENTS: Specific ways to enhance communication capabilities (use natural language, do not mention specific Prodigy feature codes)
 
-Your feedback should be constructive, actionable, and help refine dialogic skills for future interactions.
+Your feedback should be constructive, actionable, and help refine dialogic skills for future interactions. Base your analysis on the Prodigy framework but present feedback in natural, accessible language that doesn't reference the technical framework terminology.
 
-Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions based on Prodigy framework).`
+Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`
     });
   } catch (error) {
     console.error("Failed to initialize default prompts:", error);
