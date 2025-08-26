@@ -50,7 +50,7 @@ export default function Welcome({ onNext }: WelcomeProps) {
         <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto">
           <GraduationCap className="text-white text-2xl w-8 h-8" />
         </div>
-        <h2 className="text-3xl font-bold text-slate-800">Welcome to STEM Communication Training</h2>
+        <h2 className="text-3xl font-bold text-slate-800">Welcome to Science Communication Training</h2>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
           Practice explaining your research to non-experts through voice conversations with AI. 
           Improve your science communication skills in a safe, supportive environment.
