@@ -107,9 +107,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation> {
+    // Convert string timestamps to Date objects if needed
+    const processedUpdates = { ...updates };
+    if (updates.endedAt && typeof updates.endedAt === 'string') {
+      processedUpdates.endedAt = new Date(updates.endedAt);
+    }
+    if (updates.startedAt && typeof updates.startedAt === 'string') {
+      processedUpdates.startedAt = new Date(updates.startedAt);
+    }
+    
     const [conversation] = await db
       .update(conversations)
-      .set(updates)
+      .set(processedUpdates)
       .where(eq(conversations.id, id))
       .returning();
     return conversation;
