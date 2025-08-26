@@ -32,10 +32,17 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
       const conversation = await conversationResponse.json();
       
       // Generate feedback based on conversation messages
+      console.log("About to call feedback API with:", {
+        conversationId,
+        messages: conversation.transcript || [],
+      });
+      
       const feedbackResponse = await apiRequest("POST", "/api/feedback", {
         conversationId,
         messages: conversation.transcript || [],
       });
+      
+      console.log("Feedback response status:", feedbackResponse.status, feedbackResponse.statusText);
       
       if (!feedbackResponse.ok) {
         const errorText = await feedbackResponse.text();
