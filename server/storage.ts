@@ -71,9 +71,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateTrainingSession(id: string, updates: Partial<TrainingSession>): Promise<TrainingSession> {
+    // Convert string timestamps to Date objects if needed
+    const processedUpdates = { ...updates };
+    
+    if (updates.completedAt && typeof updates.completedAt === 'string') {
+      processedUpdates.completedAt = new Date(updates.completedAt);
+    }
+    if (updates.startedAt && typeof updates.startedAt === 'string') {
+      processedUpdates.startedAt = new Date(updates.startedAt);
+    }
+    
     const [session] = await db
       .update(trainingSessions)
-      .set(updates)
+      .set(processedUpdates)
       .where(eq(trainingSessions.id, id))
       .returning();
     return session;
