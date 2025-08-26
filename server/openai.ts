@@ -52,7 +52,6 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
       model: "gpt-5",
       messages: openaiMessages,
       max_completion_tokens: 150,
-      temperature: 0.8,
     });
 
     return response.choices[0].message.content || "I'm sorry, I didn't catch that. Could you explain it again?";
@@ -93,7 +92,6 @@ Provide scores out of 10 for each category, an overall score (average), 3-5 spec
         { role: "user", content: `Please analyze this conversation and provide feedback:\n\n${conversationText}` }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.3,
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
