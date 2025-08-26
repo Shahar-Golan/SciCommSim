@@ -16,7 +16,7 @@ import {
   type InsertAiPrompt,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Students
@@ -121,11 +121,15 @@ export class DatabaseStorage implements IStorage {
           .where(eq(conversations.sessionId, session.id))
           .orderBy(conversations.conversationNumber);
 
-        const conversationIds = sessionConversations.map(c => c.id);
-        const sessionFeedbacks = conversationIds.length > 0 ? await db
-          .select()
-          .from(feedback)
-          .where(sql`${feedback.conversationId} = ANY(${conversationIds})`) : [];
+        // Get feedback for each conversation individually to avoid array issues
+        const sessionFeedbacks = [];
+        for (const conversation of sessionConversations) {
+          const conversationFeedback = await db
+            .select()
+            .from(feedback)
+            .where(eq(feedback.conversationId, conversation.id));
+          sessionFeedbacks.push(...conversationFeedback);
+        }
 
         return {
           ...session,
