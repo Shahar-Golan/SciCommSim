@@ -83,13 +83,9 @@ export const insertConversationSchema = createInsertSchema(conversations).pick({
 
 export const insertFeedbackSchema = createInsertSchema(feedback).pick({
   conversationId: true,
-  overallScore: true,
-  clarityScore: true,
-  questionHandlingScore: true,
-  engagementScore: true,
-  pacingScore: true,
+  strengths: true,
+  improvements: true,
   recommendations: true,
-  detailedFeedback: true,
 });
 
 export const insertAiPromptSchema = createInsertSchema(aiPrompts).pick({
