@@ -27,10 +27,18 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
     try {
       // First, get the conversation to extract messages
       console.log("Fetching conversation...");
-      const conversationResponse = await apiRequest("GET", `/api/conversations/${conversationId}`);
+      const conversationResponse = await fetch(`/api/conversations/${conversationId}`, {
+        credentials: "include",
+      });
+      
+      console.log("Conversation response status:", conversationResponse.status);
+      
       if (!conversationResponse.ok) {
+        const errorText = await conversationResponse.text();
+        console.error("Conversation fetch error:", errorText);
         throw new Error("Failed to fetch conversation");
       }
+      
       const conversation = await conversationResponse.json();
       console.log("Got conversation:", conversation);
       
