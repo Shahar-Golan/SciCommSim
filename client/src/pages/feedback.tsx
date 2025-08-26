@@ -38,7 +38,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
       });
       
       // Use raw fetch instead of apiRequest to handle errors manually
-      const feedbackResponse = await fetch("/api/feedback", {
+      const feedbackResponse = await fetch("http://localhost:5000/api/feedback", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
