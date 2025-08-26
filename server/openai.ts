@@ -49,11 +49,13 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: openaiMessages,
-      max_completion_tokens: 150,
+      max_tokens: 150,
+      temperature: 0.8,
     });
 
+    console.log("AI Response:", response.choices[0].message.content);
     return response.choices[0].message.content || "I'm sorry, I didn't catch that. Could you explain it again?";
   } catch (error) {
     console.error("ChatGPT error:", error);
@@ -86,12 +88,13 @@ Provide scores out of 10 for each category, an overall score (average), 3-5 spec
     ).join("\n\n");
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: `Please analyze this conversation and provide feedback:\n\n${conversationText}` }
       ],
       response_format: { type: "json_object" },
+      temperature: 0.3,
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
