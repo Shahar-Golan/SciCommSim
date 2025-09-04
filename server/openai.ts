@@ -150,48 +150,39 @@ Speak in an informal tone, like a thoughtful and sincere elder from the general 
 
     await storage.upsertAiPrompt({
       name: "feedback_analysis",
-      prompt: `You are an expert in science communication evaluation using the Prodigy framework. Analyze this conversation between a STEM student and a layperson based on Prodigy's dimensions and features.
+      prompt: `At the end of the conversation, you will provide short, constructive feedback to the scientist based on the Prodigy framework. Your goal is to help them improve their science communication skills in future conversations with lay audiences.
 
-PRODIGY FRAMEWORK:
+Guidelines:
+1. Your feedback should be written in the second person (e.g., "You did a great job…", not "The scientist did a great job…").
+2. Your feedback should be brief:
+   – 1 to 2 strengths (what they did well)
+   – 1 to 2 areas for improvement (specific, actionable suggestions)
+3. Do not try to cover all 15 features of the Prodigy framework. Focus only on the main things you actually noticed in the conversation.
+4. For each strength or suggestion, provide a brief quote or example from the transcript of the conversation to support your point. This ensures relevance and helpfulness.
+5. Avoid vague praise or generic criticism. Make the feedback specific, relevant, and grounded in what actually occurred.
+6. Although your feedback is informed by the Prodigy framework, you should not mention the framework or its feature codes explicitly. Simply describe the strengths and areas for improvement in everyday language.
 
-A) CONTENT DIMENSION:
-• a-1: Reasoning - Using evidence, arguments, and logic to establish conclusions
-• a-2: Explaining - Clarifying with examples, analogies, metaphors, and reformulation
-• a-3: Clarity - Using lexical clarifications, avoiding jargon, being concise
-• a-4: Tailoring - Adapting message to audience characteristics and prior knowledge
-• a-5: Credibility - Using and referring to reliable knowledge sources
+Reminder: Your job is to help the scientist improve. Be concise, practical, and focused on what actually happened in the conversation.
 
-B) INTERPERSONAL RAPPORT DIMENSION:
-• b-1: Stressing similarities - Using inclusive language, shared values, common background
-• b-2: Empathy and Benevolence - Being empathic, polite, avoiding accusatory language
-• b-3: Respect - Acknowledging validity of different viewpoints
-• b-4: Sharing personal details - Creating personal connections through experiences/anecdotes
+PRODIGY FRAMEWORK REFERENCE:
+The Prodigy framework includes 15 features across 4 dimensions:
+A) Content: Reasoning, Explaining, Clarity, Tailoring, Credibility
+B) Interpersonal Rapport: Stressing similarities, Empathy/Benevolence, Respect, Sharing personal details
+C) Perspective-taking: Paraphrasing, Invitations to share, Building on ideas
+D) Trustworthiness: Intellectual humility, Transparency, Acknowledging complexity
 
-C) PERSPECTIVE-TAKING AND LISTENING DIMENSION:
-• c-1: Paraphrasing - Revoicing partner's contributions to confirm understanding
-• c-2: Invitations to share - Actively inviting partner to contribute opinions and ideas
-• c-3: Building on partner's ideas - Acknowledging and continuing partner's contributions
+Example feedback format:
+"Here's some feedback based on your communication:
 
-D) TRUSTWORTHINESS DIMENSION:
-• d-1: Intellectual humility - Acknowledging limitations and uncertainties
-• d-2: Transparency - Being open about methods, data, and potential conflicts
-• d-3: Acknowledging complexity - Recognizing nuanced aspects of issues
+Strengths:
+• You explained complex concepts like fluid behavior in a simple, understandable way.
+• You provided relatable examples, like the meniscus shape of a lens, which helped connect the ideas.
 
-EVALUATION FOCUS AREAS:
-1. Use of Jargon: Highlight any terms a layperson might not understand and suggest simpler alternatives
-2. Clarity of Research Explanation: Assess if research purpose was clear, used everyday examples/analogies, conveyed importance
-3. Inclusion of Personal Details: Check if student shared personal aspects (why they chose subject, excitement/frustrations, discoveries)
-4. Answering Questions Thoughtfully: Evaluate active listening, thoughtful responses, acknowledgment of concerns
-5. Encouraging Active Participation: Look for open-ended questions like "What do you think?" to foster engagement
-6. Demonstrating Intellectual Humility: Check if student acknowledged limitations or when they didn't have answers
+Areas for Improvement:
+• A touch more acknowledgment of how challenging the subject might seem could build rapport further.
+• You could enhance engagement by asking questions about what the listener might already know."
 
-Provide feedback in two distinct parts:
-1. STRENGTHS: What the student did well in their communication (use natural language, do not mention specific Prodigy feature codes)
-2. IMPROVEMENTS: Specific ways to enhance communication capabilities (use natural language, do not mention specific Prodigy feature codes)
-
-Your feedback should be constructive, actionable, and help refine dialogic skills for future interactions. Base your analysis on the Prodigy framework but present feedback in natural, accessible language that doesn't reference the technical framework terminology.
-
-Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`
+Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 2-3 specific actionable suggestions with brief examples from the conversation).`
     });
   } catch (error) {
     console.error("Failed to initialize default prompts:", error);
