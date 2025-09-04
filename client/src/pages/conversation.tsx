@@ -183,7 +183,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
             />
 
             {/* Conversation Controls */}
-            <div className="flex justify-center space-x-4">
+            <div className="flex justify-center">
               <Button 
                 variant="outline"
                 className="px-6 py-2"
@@ -191,15 +191,6 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
               >
                 <Pause className="mr-2 w-4 h-4" />
                 Pause
-              </Button>
-              <Button 
-                variant="destructive"
-                onClick={handleEndConversation}
-                className="px-6 py-2"
-                data-testid="button-end-conversation"
-              >
-                <Square className="mr-2 w-4 h-4" />
-                End Conversation
               </Button>
             </div>
 
@@ -252,6 +243,24 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
           </div>
         </div>
       )}
+
+      {/* End Conversation Button - Isolated at bottom */}
+      <div className="mt-8 pt-6 border-t border-slate-200">
+        <div className="text-center">
+          <p className="text-sm text-slate-500 mb-4">
+            When you're ready to finish this conversation
+          </p>
+          <Button 
+            variant="destructive"
+            onClick={handleEndConversation}
+            className="px-8 py-3"
+            data-testid="button-end-conversation"
+          >
+            <Square className="mr-2 w-4 h-4" />
+            End Conversation
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
