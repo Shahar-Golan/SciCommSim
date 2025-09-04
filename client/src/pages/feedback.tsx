@@ -139,21 +139,12 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
           </div>
         )}
 
-        {/* Recommendations */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-          <h3 className="text-xl font-semibold text-slate-800 mb-6 flex items-center">
-            <div className="w-3 h-3 bg-purple-500 rounded-full mr-3"></div>
-            Specific Recommendations
-          </h3>
-          <ul className="space-y-3">
-            {feedback.recommendations?.map((rec, index) => (
-              <li key={index} className="flex items-start">
-                <div className="w-2 h-2 bg-purple-400 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                <span className="text-slate-700">{rec}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* Overall Summary */}
+        {feedback.summary && (
+          <div className="bg-slate-50 rounded-xl shadow-sm border border-slate-200 p-8 text-center">
+            <p className="text-slate-700 text-lg leading-relaxed font-medium">{feedback.summary}</p>
+          </div>
+        )}
       </div>
 
       <div className="text-center">

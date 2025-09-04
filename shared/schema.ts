@@ -51,7 +51,7 @@ export const feedback = pgTable("feedback", {
   conversationId: uuid("conversation_id").references(() => conversations.id).notNull(),
   strengths: text("strengths"),
   improvements: text("improvements"),
-  recommendations: jsonb("recommendations").$type<string[]>().default([]),
+  summary: text("summary"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
