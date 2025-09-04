@@ -139,12 +139,6 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
           </div>
         )}
 
-        {/* Overall Summary */}
-        {feedback.summary && (
-          <div className="bg-slate-50 rounded-xl shadow-sm border border-slate-200 p-8 text-center">
-            <p className="text-slate-700 text-lg leading-relaxed font-medium">{feedback.summary}</p>
-          </div>
-        )}
       </div>
 
       <div className="text-center">

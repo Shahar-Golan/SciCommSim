@@ -66,7 +66,6 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
 export async function generateFeedback(messages: Message[]): Promise<{
   strengths: string;
   improvements: string;
-  summary: string;
 }> {
   try {
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
@@ -80,7 +79,7 @@ Do NOT provide numerical scores or percentages. Focus on qualitative feedback th
 
 Please provide your analysis as detailed, constructive feedback that will help the student improve their ability to communicate complex scientific concepts to general audiences. Be specific about communication techniques, clarity, engagement strategies, and how well they addressed concerns.
 
-Respond in JSON format with keys: strengths (string), improvements (string), recommendations (array of 3-5 specific actionable suggestions).`;
+Respond in JSON format with keys: strengths (string), improvements (string).`;
 
     const conversationText = messages.map(msg => 
       `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`
@@ -101,7 +100,6 @@ Respond in JSON format with keys: strengths (string), improvements (string), rec
     return {
       strengths: result.strengths || "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
       improvements: result.improvements || "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
-      summary: result.summary || "Overall, your communication was effective and approachable. Keep practicing to further improve your skills!"
     };
   } catch (error) {
     console.error("Feedback generation error:", error);
@@ -109,7 +107,6 @@ Respond in JSON format with keys: strengths (string), improvements (string), rec
     return {
       strengths: "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
       improvements: "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
-      summary: "Overall, your communication was effective and approachable. Keep practicing to further improve your skills!"
     };
   }
 }
@@ -172,7 +169,7 @@ Areas for Improvement:
 • A touch more acknowledgment of how challenging the subject might seem could build rapport further.
 • You could enhance engagement by asking questions about what the listener might already know."
 
-Respond in JSON format with keys: strengths (string), improvements (string), summary (string - a brief encouraging overall summary like "Overall, your communication was effective and approachable. Great job!" or "Overall, you're doing a really good job explaining your research. These small adjustments can make your explanations even more engaging and impactful. Keep up the great work!").`
+Respond in JSON format with keys: strengths (string), improvements (string).`
     });
   } catch (error) {
     console.error("Failed to initialize default prompts:", error);
