@@ -66,7 +66,7 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
 export async function generateFeedback(messages: Message[]): Promise<{
   strengths: string;
   improvements: string;
-  recommendations: string[];
+  summary: string;
 }> {
   try {
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
