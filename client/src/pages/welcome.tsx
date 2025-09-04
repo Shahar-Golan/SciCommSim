@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { GraduationCap, ArrowRight } from "lucide-react";
+import { GraduationCap, ArrowRight, Play } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,6 +55,37 @@ export default function Welcome({ onNext }: WelcomeProps) {
           Practice explaining your research to non-experts through voice conversations with AI. 
           Improve your science communication skills in a safe, supportive environment.
         </p>
+      </div>
+
+      {/* Tutorial Video Section */}
+      <div className="text-center">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 max-w-lg mx-auto">
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+              <Play className="text-white w-5 h-5 ml-0.5" />
+            </div>
+            <h3 className="text-xl font-semibold text-blue-800">Watch the Tutorial First</h3>
+          </div>
+          <p className="text-blue-700 mb-4">
+            Please watch this short tutorial before starting your training session
+          </p>
+          <Button 
+            asChild
+            variant="outline"
+            className="border-blue-300 text-blue-700 hover:bg-blue-100 px-6 py-2"
+            data-testid="button-tutorial"
+          >
+            <a 
+              href="https://youtu.be/87xC9zmueRU" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <Play className="mr-2 w-4 h-4" />
+              Watch Tutorial
+            </a>
+          </Button>
+        </div>
       </div>
 
       <Card className="max-w-md mx-auto">
