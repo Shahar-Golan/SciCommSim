@@ -174,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationId,
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
-        recommendations: feedbackData.recommendations,
+        summary: feedbackData.summary,
       });
       
       console.log("Saved feedback to database:", feedback);
