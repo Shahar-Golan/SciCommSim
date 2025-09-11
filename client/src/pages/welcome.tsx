@@ -76,7 +76,7 @@ export default function Welcome({ onNext }: WelcomeProps) {
             data-testid="button-tutorial"
           >
             <a 
-              href="https://youtu.be/87xC9zmueRU" 
+              href="https://youtu.be/WaO8_2Aj08M" 
               target="_blank" 
               rel="noopener noreferrer"
               className="flex items-center"
