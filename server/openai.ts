@@ -68,6 +68,17 @@ export async function generateFeedback(messages: Message[]): Promise<{
   improvements: string;
 }> {
   try {
+    // Check if the conversation is meaningful (has student responses)
+    const studentMessages = messages.filter(msg => msg.role === "student");
+    
+    // If no student messages or conversation is too short, return empty conversation message
+    if (studentMessages.length === 0) {
+      return {
+        strengths: "No conversation to analyze.",
+        improvements: "Please engage with the AI in a meaningful conversation before requesting feedback. Try again with your next conversation."
+      };
+    }
+    
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
     const systemPrompt = feedbackPrompt?.prompt || `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson.
 
