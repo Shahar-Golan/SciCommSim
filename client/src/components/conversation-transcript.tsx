@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { User, Bot } from "lucide-react";
 import type { Message } from "@shared/schema";
@@ -7,6 +8,13 @@ interface ConversationTranscriptProps {
 }
 
 export default function ConversationTranscript({ messages }: ConversationTranscriptProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
@@ -21,38 +29,41 @@ export default function ConversationTranscript({ messages }: ConversationTranscr
               Your conversation will appear here...
             </p>
           ) : (
-            messages.map((message, index) => (
-              <div key={index} className="flex space-x-3" data-testid={`message-${index}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.role === 'student' 
-                    ? 'bg-blue-100' 
-                    : 'bg-green-100'
-                }`}>
-                  {message.role === 'student' ? (
-                    <User className="text-blue-500 text-sm w-4 h-4" />
-                  ) : (
-                    <Bot className="text-green-500 text-sm w-4 h-4" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className={`rounded-lg p-3 ${
+            <>
+              {messages.map((message, index) => (
+                <div key={index} className="flex space-x-3" data-testid={`message-${index}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                     message.role === 'student' 
-                      ? 'bg-blue-50' 
-                      : 'bg-green-50'
+                      ? 'bg-blue-100' 
+                      : 'bg-green-100'
                   }`}>
-                    <p className="text-sm text-slate-800">{message.content}</p>
+                    {message.role === 'student' ? (
+                      <User className="text-blue-500 text-sm w-4 h-4" />
+                    ) : (
+                      <Bot className="text-green-500 text-sm w-4 h-4" />
+                    )}
                   </div>
-                  <span className="text-xs text-slate-500 mt-1" data-testid={`message-time-${index}`}>
-                    {message.role === 'student' ? 'You' : 'AI Assistant'} • {
-                      new Date(message.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })
-                    }
-                  </span>
+                  <div className="flex-1">
+                    <div className={`rounded-lg p-3 ${
+                      message.role === 'student' 
+                        ? 'bg-blue-50' 
+                        : 'bg-green-50'
+                    }`}>
+                      <p className="text-sm text-slate-800">{message.content}</p>
+                    </div>
+                    <span className="text-xs text-slate-500 mt-1" data-testid={`message-time-${index}`}>
+                      {message.role === 'student' ? 'You' : 'AI Assistant'} • {
+                        new Date(message.timestamp).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })
+                      }
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+              <div ref={messagesEndRef} />
+            </>
           )}
         </div>
       </ScrollArea>
