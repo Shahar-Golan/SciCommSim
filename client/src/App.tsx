@@ -40,11 +40,16 @@ function App() {
     sessionId: "",
   });
 
-  // Admin access with keyboard shortcut
+  // Admin access with keyboard shortcut and password protection
   useState(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-        setCurrentState("admin");
+        const password = prompt("Enter admin password:");
+        if (password === "SciComTech1") {
+          setCurrentState("admin");
+        } else if (password !== null) {
+          alert("Incorrect password. Access denied.");
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
