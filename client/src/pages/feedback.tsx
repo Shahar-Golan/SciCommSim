@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, RotateCcw } from "lucide-react";
+import { TrendingUp, RotateCcw, FileText, Eye, EyeOff } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ConversationTranscript from "@/components/conversation-transcript";
 import type { Feedback, Message } from "@shared/schema";
 
 interface FeedbackProps {
@@ -14,6 +15,8 @@ interface FeedbackProps {
 export default function FeedbackPage({ conversationId, conversationNumber, onNext }: FeedbackProps) {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
+  const [showTranscript, setShowTranscript] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -40,6 +43,9 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
       
       const conversation = await conversationResponse.json();
       console.log("Got conversation:", conversation);
+      
+      // Store the conversation messages for transcript display
+      setConversationMessages(conversation.transcript || []);
       
       // Generate feedback based on conversation messages
       console.log("About to call feedback API with:", {
@@ -140,6 +146,35 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         )}
 
       </div>
+
+      {/* View Transcript Button */}
+      <div className="text-center">
+        <Button 
+          onClick={() => setShowTranscript(!showTranscript)}
+          variant="outline"
+          className="px-6 py-3"
+          data-testid="button-toggle-transcript"
+        >
+          {showTranscript ? (
+            <>
+              <EyeOff className="mr-2 w-4 h-4" />
+              Hide Conversation Transcript
+            </>
+          ) : (
+            <>
+              <Eye className="mr-2 w-4 h-4" />
+              View Conversation Transcript
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Conversation Transcript */}
+      {showTranscript && conversationMessages.length > 0 && (
+        <div className="max-w-4xl mx-auto">
+          <ConversationTranscript messages={conversationMessages} />
+        </div>
+      )}
 
       <div className="text-center">
         <Button 
