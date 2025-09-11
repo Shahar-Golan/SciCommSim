@@ -60,23 +60,19 @@ export default function Instructions({ onNext }: InstructionsProps) {
         <div className="space-y-3">
           <div className="flex items-start space-x-3">
             <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-0.5">1</span>
-            <p className="text-slate-700 text-sm">Start your first conversation and explain your research</p>
+            <p className="text-slate-700 text-sm">Start your first conversation and tell the simulator about your research.</p>
           </div>
           <div className="flex items-start space-x-3">
             <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-0.5">2</span>
-            <p className="text-slate-700 text-sm">End by saying "We're finished" or clicking the end button</p>
+            <p className="text-slate-700 text-sm">Review the feedback you receive and decide what you'd like to improve.</p>
           </div>
           <div className="flex items-start space-x-3">
             <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-0.5">3</span>
-            <p className="text-slate-700 text-sm">Review your feedback and areas for improvement</p>
+            <p className="text-slate-700 text-sm">Begin a second conversation, aiming to apply the improvements you identified.</p>
           </div>
           <div className="flex items-start space-x-3">
             <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-0.5">4</span>
-            <p className="text-slate-700 text-sm">Repeat with a second conversation to practice improvements</p>
-          </div>
-          <div className="flex items-start space-x-3">
-            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full mt-0.5">5</span>
-            <p className="text-slate-700 text-sm">Complete a brief survey about your experience</p>
+            <p className="text-slate-700 text-sm">Complete a brief survey about your experience.</p>
           </div>
         </div>
       </div>
