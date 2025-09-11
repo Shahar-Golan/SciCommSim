@@ -82,7 +82,7 @@ export default function Instructions({ onNext }: InstructionsProps) {
       <div className="text-center mb-6">
         <div className="border-2 border-red-500 bg-red-50 rounded-lg p-4 inline-block">
           <p className="text-lg font-bold text-red-700">
-            IMPORTANT! Each conversation with the simulator should last at least 5 minutes long
+            IMPORTANT! Each conversation with the simulator should last at least 5 minutes
           </p>
         </div>
       </div>
