@@ -79,6 +79,12 @@ export default function Instructions({ onNext }: InstructionsProps) {
         </div>
       </div>
 
+      <div className="text-center mb-6">
+        <p className="text-lg font-bold text-slate-800">
+          IMPORTANT! Each conversation with the simulator should last at least 5 minutes long
+        </p>
+      </div>
+
       <div className="text-center">
         <Button 
           onClick={onNext}
