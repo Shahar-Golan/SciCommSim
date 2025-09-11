@@ -38,6 +38,29 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       });
       const conversation = await response.json();
       setConversationId(conversation.id);
+
+      // Auto-generate greeting from AI
+      const greetingMessage = "Hi! Can you tell me about your research?";
+      const aiMessage = addMessage('ai', greetingMessage);
+
+      // Update conversation with greeting
+      await apiRequest("PATCH", `/api/conversations/${conversation.id}`, {
+        transcript: [aiMessage],
+      });
+
+      // Generate and play greeting audio
+      try {
+        const audioUrl = await synthesizeSpeech(greetingMessage);
+        setCurrentAudioUrl(audioUrl);
+        setIsPlayingAudio(true);
+        
+        await playAudio(audioUrl);
+        setIsPlayingAudio(false);
+        setAudioProgress(0);
+      } catch (audioError) {
+        console.error("Failed to play greeting audio:", audioError);
+        // Continue even if audio fails
+      }
     } catch (error) {
       console.error("Failed to initialize conversation:", error);
       toast({
