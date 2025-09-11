@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { User, Bot } from "lucide-react";
 import type { Message } from "@shared/schema";
 
@@ -8,11 +7,16 @@ interface ConversationTranscriptProps {
 }
 
 export default function ConversationTranscript({ messages }: ConversationTranscriptProps) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when new messages are added
+  // Auto-scroll to bottom of transcript container only
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   }, [messages]);
 
   return (
@@ -22,7 +26,11 @@ export default function ConversationTranscript({ messages }: ConversationTranscr
         Conversation Transcript
       </h3>
       
-      <ScrollArea className="h-96" data-testid="conversation-transcript">
+      <div 
+        ref={scrollContainerRef}
+        className="h-96 overflow-y-auto" 
+        data-testid="conversation-transcript"
+      >
         <div className="space-y-4">
           {messages.length === 0 ? (
             <p className="text-slate-500 text-center py-8" data-testid="empty-transcript">
@@ -62,11 +70,10 @@ export default function ConversationTranscript({ messages }: ConversationTranscr
                   </div>
                 </div>
               ))}
-              <div ref={messagesEndRef} />
             </>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
