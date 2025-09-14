@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -43,6 +43,11 @@ function App() {
     studentName: "",
     sessionId: "",
   });
+
+  // Scroll to top when navigating between pages
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentState]);
 
   // Admin access with keyboard shortcut and password protection
   useState(() => {
