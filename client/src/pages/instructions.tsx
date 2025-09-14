@@ -12,9 +12,7 @@ export default function Instructions({ onNext }: InstructionsProps) {
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-slate-800">Training Instructions</h2>
         <p className="text-lg text-slate-600">
-          You'll engage in two voice conversations to practice your science communication skills.
-          Imagine you're sitting in a doctor's waiting room when an elderly layperson next to you asks, "So, what is it that you do?"
-          Your task is to explain your research in a way that's clear and engaging for someone without a scientific background, and to respond naturally to any questions or comments they might have.
+          You'll engage in two voice conversations to practice your science communication skills. Imagine you're sitting in a doctor's waiting room when a woman sitting next to you asks, "So, what is it that you do?" Your task is to explain your research in a way that's clear and engaging for someone without a scientific background, and to respond naturally to any questions or comments they might have.
         </p>
       </div>
 

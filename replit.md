@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a voice-based science communication training platform that helps STEM researchers practice explaining complex concepts to non-expert audiences. The system uses AI to simulate conversations with an elderly layperson, providing real-time feedback on communication effectiveness. Users complete two training conversations and receive detailed performance analytics on clarity, engagement, pacing, and question handling.
+This is a voice-based science communication training platform that helps STEM researchers practice explaining complex concepts to non-expert audiences. The system uses AI to simulate conversations with a woman in a doctor's waiting room, providing real-time feedback on communication effectiveness. Users complete two training conversations and receive detailed performance analytics on clarity, engagement, pacing, and question handling.
 
 ## User Preferences
 
@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 ### Voice Processing Pipeline
 - **Recording**: Browser MediaRecorder API captures WebM audio format
 - **Transcription**: OpenAI Whisper API converts speech to text
-- **AI Response**: GPT model generates contextual responses as elderly layperson
+- **AI Response**: GPT model generates contextual responses as woman in waiting room
 - **Speech Synthesis**: OpenAI TTS API converts responses back to audio
 - **Real-time Flow**: Seamless voice conversation loop with transcript display
 
@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
   - AI Prompts: Configurable system prompts for different AI roles
 
 ### AI Integration Architecture
-- **Multi-Role System**: Separate AI personas (layperson for conversation, evaluator for feedback)
+- **Multi-Role System**: Separate AI personas (woman in waiting room for conversation, evaluator for feedback)
 - **Prompt Engineering**: Configurable system prompts stored in database for flexibility
 - **Conversation Memory**: Full transcript context maintained throughout sessions
 - **Feedback Analysis**: Multi-dimensional scoring across communication skills
@@ -69,3 +69,10 @@ Preferred communication style: Simple, everyday language.
 - **TypeScript**: Full type safety across frontend and backend
 - **Replit Integration**: Custom Vite plugins for Replit development environment
 - **ESBuild**: Fast TypeScript compilation for production builds
+
+## Recent Updates
+
+- **Tutorial Video**: Updated to latest version (https://youtu.be/hkC_PVCu4oE)
+- **Training Scenario**: Changed from "elderly layperson" to "woman sitting next to you" in waiting room for more accessible scenario
+- **UX Improvements**: Added automatic scroll-to-top on page navigation for better user experience
+- **Session Summary**: Complete downloadable transcripts and feedback with refined display (no redundant empty summary sections)
