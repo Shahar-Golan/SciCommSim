@@ -168,11 +168,6 @@ export default function SessionSummary({ sessionId, onBack }: SessionSummaryProp
           lines.push("");
         }
 
-        if (feedback.summary) {
-          lines.push("Summary:");
-          lines.push(feedback.summary);
-          lines.push("");
-        }
       } else {
         lines.push("No feedback available for this conversation.");
         lines.push("");
@@ -403,12 +398,6 @@ export default function SessionSummary({ sessionId, onBack }: SessionSummaryProp
                     </div>
                   )}
 
-                  {feedback.summary && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h5 className="font-medium text-blue-800 mb-2">Summary</h5>
-                      <p className="text-blue-700">{feedback.summary}</p>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
