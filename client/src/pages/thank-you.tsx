@@ -1,6 +1,11 @@
-import { Heart, ArrowRight, Users, BookOpen } from "lucide-react";
+import { Heart, ArrowRight, Users, BookOpen, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export default function ThankYou() {
+interface ThankYouProps {
+  onAbout?: () => void;
+}
+
+export default function ThankYou({ onAbout }: ThankYouProps) {
   return (
     <div className="text-center space-y-8">
       <div className="space-y-4">
@@ -30,6 +35,21 @@ export default function ThankYou() {
           </li>
         </ul>
       </div>
+
+      {/* About Us Button */}
+      {onAbout && (
+        <div className="text-center">
+          <Button 
+            onClick={onAbout}
+            variant="outline"
+            className="text-slate-600 hover:text-slate-800"
+            data-testid="button-about-us"
+          >
+            <Info className="mr-2 w-4 h-4" />
+            About Us
+          </Button>
+        </div>
+      )}
 
       <div className="text-slate-600">
         <p className="text-sm" data-testid="completion-message">

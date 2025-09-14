@@ -2,15 +2,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { GraduationCap, ArrowRight, Play } from "lucide-react";
+import { GraduationCap, ArrowRight, Play, Info } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface WelcomeProps {
   onNext: (studentId: string, studentName: string) => void;
+  onAbout: () => void;
 }
 
-export default function Welcome({ onNext }: WelcomeProps) {
+export default function Welcome({ onNext, onAbout }: WelcomeProps) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -126,6 +127,19 @@ export default function Welcome({ onNext }: WelcomeProps) {
           </form>
         </CardContent>
       </Card>
+
+      {/* About Us Button */}
+      <div className="text-center mt-6">
+        <Button 
+          onClick={onAbout}
+          variant="outline"
+          className="text-slate-600 hover:text-slate-800"
+          data-testid="button-about-us"
+        >
+          <Info className="mr-2 w-4 h-4" />
+          About Us
+        </Button>
+      </div>
     </div>
   );
 }
