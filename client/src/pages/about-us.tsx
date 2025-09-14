@@ -39,9 +39,29 @@ export default function AboutUs({ onBack }: AboutUsProps) {
             {/* Main Text Content */}
             <div className="text-lg text-slate-700 leading-relaxed space-y-4">
               <p>
-                This tool was developed by the Applied Science Communication Research Group at the 
-                Technion – Israel Institute of Technology, in cooperation with the APPL (AI and People) 
-                Research Group. Its goal is to give scientists and students a safe space to practice 
+                This tool was developed by the{" "}
+                <a 
+                  href="https://ayeletlab.net.technion.ac.il/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                  data-testid="link-applied-science"
+                >
+                  Applied Science Communication Research Group
+                  <ExternalLink className="inline w-3 h-3 ml-1" />
+                </a>
+                {" "}at the Technion – Israel Institute of Technology, in cooperation with the{" "}
+                <a 
+                  href="https://sites.google.com/view/appl-technion/home?authuser=0"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline"
+                  data-testid="link-appl-group"
+                >
+                  APPL (AI and People) Research Group
+                  <ExternalLink className="inline w-3 h-3 ml-1" />
+                </a>
+                . Its goal is to give scientists and students a safe space to practice 
                 dialogic communication.
               </p>
               
@@ -52,7 +72,9 @@ export default function AboutUs({ onBack }: AboutUsProps) {
               <p>
                 For additional reading about productive dialogic communication: 
                 <a 
-                  href="#" 
+                  href="https://docs.google.com/document/d/1uCovWtuYKooOVsR1P4i7hae-ZJbCAj3yuUchVh44Y6w/edit?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-800 underline ml-1"
                   data-testid="link-article"
                 >
