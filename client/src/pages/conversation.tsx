@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Pause, Square, Play, Volume2 } from "lucide-react";
+import { Pause, Square, Play, Volume2, Clock } from "lucide-react";
 import VoiceRecorder from "@/components/voice-recorder";
 import ConversationTranscript from "@/components/conversation-transcript";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,11 +23,32 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string>("");
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
     initializeConversation();
   }, []);
+
+  // Timer effect
+  useEffect(() => {
+    if (!startTime) return;
+
+    const timer = setInterval(() => {
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [startTime]);
+
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const initializeConversation = async () => {
     try {
@@ -38,6 +59,9 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       });
       const conversation = await response.json();
       setConversationId(conversation.id);
+
+      // Start the timer
+      setStartTime(new Date());
 
       // Auto-generate greeting from AI
       const greetingMessage = "Hi! Can you tell me about your research?";
@@ -193,6 +217,19 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
           {conversationNumber === 1 ? "First" : "Second"} Conversation
         </h2>
         <p className="text-slate-600">Speak clearly and explain your research to the AI layperson</p>
+      </div>
+
+      {/* Stopwatch Timer */}
+      <div className="text-center">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-xs mx-auto">
+          <div className="flex items-center justify-center space-x-2">
+            <Clock className="w-5 h-5 text-blue-600" />
+            <span className="text-lg font-mono font-semibold text-blue-800" data-testid="timer-display">
+              {formatTime(elapsedTime)}
+            </span>
+          </div>
+          <p className="text-xs text-blue-600 mt-1">Conversation Time</p>
+        </div>
       </div>
 
       {/* Voice Controls */}
