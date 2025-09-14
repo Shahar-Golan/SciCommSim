@@ -64,6 +64,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/training-sessions/:id/summary", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const sessionSummary = await storage.getSessionSummary(id);
+      if (!sessionSummary) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      res.json(sessionSummary);
+    } catch (error) {
+      console.error("Error fetching session summary:", error);
+      res.status(500).json({ message: "Failed to fetch session summary" });
+    }
+  });
+
   // Conversation management
   app.post("/api/conversations", async (req, res) => {
     try {

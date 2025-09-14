@@ -28,6 +28,14 @@ export interface IStorage {
   updateTrainingSession(id: string, updates: Partial<TrainingSession>): Promise<TrainingSession>;
   getTrainingSession(id: string): Promise<TrainingSession | undefined>;
   getAllTrainingSessions(): Promise<TrainingSession[]>;
+  getSessionSummary(sessionId: string): Promise<{
+    session: TrainingSession;
+    student: Student;
+    conversations: Array<{
+      conversation: Conversation;
+      feedback: Feedback | null;
+    }>;
+  } | undefined>;
 
   // Conversations
   createConversation(conversation: InsertConversation): Promise<Conversation>;
@@ -143,6 +151,47 @@ export class DatabaseStorage implements IStorage {
     return sessionsWithDetails;
   }
 
+  async getSessionSummary(sessionId: string): Promise<{
+    session: TrainingSession;
+    student: Student;
+    conversations: Array<{
+      conversation: Conversation;
+      feedback: Feedback | null;
+    }>;
+  } | undefined> {
+    // Get the training session
+    const session = await this.getTrainingSession(sessionId);
+    if (!session) {
+      return undefined;
+    }
+
+    // Get the student
+    const student = await this.getStudent(session.studentId);
+    if (!student) {
+      return undefined;
+    }
+
+    // Get conversations for this session
+    const sessionConversations = await this.getConversationsBySession(sessionId);
+
+    // Get feedback for each conversation
+    const conversationsWithFeedback = await Promise.all(
+      sessionConversations.map(async (conversation) => {
+        const feedbackData = await this.getFeedbackByConversation(conversation.id);
+        return {
+          conversation,
+          feedback: feedbackData || null,
+        };
+      })
+    );
+
+    return {
+      session,
+      student,
+      conversations: conversationsWithFeedback,
+    };
+  }
+
   async createConversation(conversationData: InsertConversation): Promise<Conversation> {
     const insertData = {
       ...conversationData,
@@ -190,13 +239,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
-    const insertData = {
-      ...feedbackData,
-      recommendations: feedbackData.recommendations as any // Type assertion for JSON array
-    };
     const [feedbackRecord] = await db
       .insert(feedback)
-      .values(insertData)
+      .values(feedbackData)
       .returning();
     return feedbackRecord;
   }

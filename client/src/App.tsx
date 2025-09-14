@@ -13,6 +13,7 @@ import Survey from "@/pages/survey";
 import ThankYou from "@/pages/thank-you";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AboutUs from "@/pages/about-us";
+import SessionSummary from "@/pages/session-summary";
 
 type AppState = 
   | "welcome" 
@@ -24,7 +25,8 @@ type AppState =
   | "survey" 
   | "thankYou"
   | "admin"
-  | "aboutUs";
+  | "aboutUs"
+  | "sessionSummary";
 
 interface SessionData {
   studentId: string;
@@ -118,6 +120,14 @@ function App() {
     setCurrentState("welcome");
   };
 
+  const handleShowSessionSummary = () => {
+    setCurrentState("sessionSummary");
+  };
+
+  const handleSessionSummaryBack = () => {
+    setCurrentState("thankYou");
+  };
+
   const renderCurrentPage = () => {
     switch (currentState) {
       case "welcome":
@@ -171,13 +181,16 @@ function App() {
         );
       
       case "thankYou":
-        return <ThankYou onAbout={handleShowAbout} />;
+        return <ThankYou onAbout={handleShowAbout} onViewSummary={handleShowSessionSummary} />;
       
       case "admin":
         return <AdminDashboard />;
       
       case "aboutUs":
         return <AboutUs onBack={handleAboutBack} />;
+      
+      case "sessionSummary":
+        return <SessionSummary sessionId={sessionData.sessionId} onBack={handleSessionSummaryBack} />;
       
       default:
         return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} />;

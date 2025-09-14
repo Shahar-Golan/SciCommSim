@@ -1,11 +1,12 @@
-import { Heart, ArrowRight, Users, BookOpen, Info } from "lucide-react";
+import { Heart, ArrowRight, Users, BookOpen, Info, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ThankYouProps {
   onAbout?: () => void;
+  onViewSummary?: () => void;
 }
 
-export default function ThankYou({ onAbout }: ThankYouProps) {
+export default function ThankYou({ onAbout, onViewSummary }: ThankYouProps) {
   return (
     <div className="text-center space-y-8">
       <div className="space-y-4">
@@ -35,6 +36,23 @@ export default function ThankYou({ onAbout }: ThankYouProps) {
           </li>
         </ul>
       </div>
+
+      {/* Session Summary Button */}
+      {onViewSummary && (
+        <div className="text-center">
+          <Button 
+            onClick={onViewSummary}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
+            data-testid="button-view-summary"
+          >
+            <FileText className="mr-2 w-5 h-5" />
+            View & Save Session Summary
+          </Button>
+          <p className="text-sm text-slate-500 mt-2">
+            Download your complete conversation transcripts and feedback
+          </p>
+        </div>
+      )}
 
       {/* About Us Button */}
       {onAbout && (
