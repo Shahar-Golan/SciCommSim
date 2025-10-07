@@ -21,8 +21,8 @@ export default function Welcome({ onNext, onAbout }: WelcomeProps) {
     
     if (!name.trim()) {
       toast({
-        title: "Name Required",
-        description: "Please enter your name to continue.",
+        title: "Student Number Required",
+        description: "Please enter your student number to continue.",
         variant: "destructive",
       });
       return;
@@ -94,20 +94,20 @@ export default function Welcome({ onNext, onAbout }: WelcomeProps) {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-slate-800 mb-2">Let's Get Started</h3>
-              <p className="text-slate-600 text-sm">Please enter your name to begin your training session</p>
+              <p className="text-slate-600 text-sm">Please enter your student number to begin your training session</p>
             </div>
             
             <div className="space-y-4">
               <div>
                 <label htmlFor="student-name" className="block text-sm font-medium text-slate-700 mb-2">
-                  Your Name
+                  Your Student Number
                 </label>
                 <Input
                   id="student-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
+                  placeholder="Enter your student number"
                   className="w-full"
                   disabled={isLoading}
                   data-testid="input-student-name"
