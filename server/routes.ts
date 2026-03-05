@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, generateLaypersonResponse, generateFeedback, initializeDefaultPrompts } from "./openai";
+import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import multer from "multer";
 import { z } from "zod";
 
@@ -11,6 +12,9 @@ const upload = multer({ storage: multer.memoryStorage() });
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default AI prompts
   await initializeDefaultPrompts();
+
+  // Initialize audio storage bucket
+  await initializeAudioBucket();
 
   // Student registration
   app.post("/api/students", async (req, res) => {
@@ -139,6 +143,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Transcription error:", error);
       res.status(500).json({ message: "Failed to transcribe audio" });
+    }
+  });
+
+  // Upload audio file (student recording) and get URL
+  app.post("/api/audio/upload", upload.single("audio"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No audio file provided" });
+      }
+
+      const { conversationId, role, timestamp } = req.body;
+
+      // Upload to Supabase Storage
+      const audioUrl = await uploadAudio(
+        req.file.buffer,
+        req.file.mimetype,
+        {
+          conversationId: conversationId || undefined,
+          role: role || 'student',
+          timestamp: timestamp || new Date().toISOString(),
+        }
+      );
+
+      if (!audioUrl) {
+        return res.status(500).json({ message: "Failed to upload audio" });
+      }
+
+      res.json({ audioUrl });
+    } catch (error) {
+      console.error("Audio upload error:", error);
+      res.status(500).json({ message: "Failed to upload audio" });
+    }
+  });
+
+  // Upload AI-generated audio (from TTS) and get URL
+  app.post("/api/audio/upload-ai", async (req, res) => {
+    try {
+      const { text, conversationId, timestamp } = req.body;
+
+      if (!text) {
+        return res.status(400).json({ message: "No text provided" });
+      }
+
+      // Generate speech
+      const audioBuffer = await generateSpeech(text);
+
+      // Upload to Supabase Storage
+      const audioUrl = await uploadAudio(
+        audioBuffer,
+        'audio/mpeg',
+        {
+          conversationId: conversationId || undefined,
+          role: 'ai',
+          timestamp: timestamp || new Date().toISOString(),
+        }
+      );
+
+      if (!audioUrl) {
+        return res.status(500).json({ message: "Failed to upload audio" });
+      }
+
+      res.json({ audioUrl, audioBuffer: audioBuffer.toString('base64') });
+    } catch (error) {
+      console.error("AI audio upload error:", error);
+      res.status(500).json({ message: "Failed to upload AI audio" });
     }
   });
 
