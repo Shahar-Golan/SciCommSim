@@ -1,6 +1,11 @@
 import { useState, useRef, useCallback } from 'react';
 import { apiRequest } from '@/lib/queryClient';
 
+export interface RecordingResult {
+  text: string;
+  audioUrl: string | null;
+}
+
 export function useVoiceRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,7 +36,7 @@ export function useVoiceRecorder() {
     }
   }, []);
 
-  const stopRecording = useCallback((): Promise<string> => {
+  const stopRecording = useCallback((conversationId?: string): Promise<RecordingResult> => {
     return new Promise((resolve, reject) => {
       const mediaRecorder = mediaRecorderRef.current;
       if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -45,14 +50,33 @@ export function useVoiceRecorder() {
 
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          const formData = new FormData();
-          formData.append('audio', audioBlob, 'recording.webm');
-
-          const response = await apiRequest('POST', '/api/transcribe', formData);
-          const result = await response.json();
+          const timestamp = new Date().toISOString();
+          
+          // Transcribe audio
+          const transcribeFormData = new FormData();
+          transcribeFormData.append('audio', audioBlob, 'recording.webm');
+          const transcribeResponse = await apiRequest('POST', '/api/transcribe', transcribeFormData);
+          const transcribeResult = await transcribeResponse.json();
+          
+          // Upload audio to storage
+          let audioUrl: string | null = null;
+          try {
+            const uploadFormData = new FormData();
+            uploadFormData.append('audio', audioBlob, 'recording.webm');
+            uploadFormData.append('conversationId', conversationId || 'unknown');
+            uploadFormData.append('role', 'student');
+            uploadFormData.append('timestamp', timestamp);
+            
+            const uploadResponse = await apiRequest('POST', '/api/audio/upload', uploadFormData);
+            const uploadResult = await uploadResponse.json();
+            audioUrl = uploadResult.audioUrl;
+          } catch (uploadError) {
+            console.error('Failed to upload audio:', uploadError);
+            // Continue even if upload fails
+          }
           
           setIsProcessing(false);
-          resolve(result.text);
+          resolve({ text: transcribeResult.text, audioUrl });
         } catch (error) {
           setIsProcessing(false);
           reject(error);
@@ -66,9 +90,9 @@ export function useVoiceRecorder() {
     });
   }, []);
 
-  const toggleRecording = useCallback(async (): Promise<string | null> => {
+  const toggleRecording = useCallback(async (conversationId?: string): Promise<RecordingResult | null> => {
     if (isRecording) {
-      return await stopRecording();
+      return await stopRecording(conversationId);
     } else {
       await startRecording();
       return null;

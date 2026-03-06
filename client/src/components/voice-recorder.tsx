@@ -1,22 +1,23 @@
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Square } from "lucide-react";
-import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
+import { useVoiceRecorder, type RecordingResult } from "@/hooks/use-voice-recorder";
 import { cn } from "@/lib/utils";
 
 interface VoiceRecorderProps {
-  onTranscription: (text: string) => void;
+  onTranscription: (text: string, audioUrl: string | null) => void;
   onError?: (error: string) => void;
   disabled?: boolean;
+  conversationId?: string;
 }
 
-export default function VoiceRecorder({ onTranscription, onError, disabled }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onTranscription, onError, disabled, conversationId }: VoiceRecorderProps) {
   const { isRecording, isProcessing, toggleRecording } = useVoiceRecorder();
 
   const handleToggleRecording = async () => {
     try {
-      const transcription = await toggleRecording();
-      if (transcription) {
-        onTranscription(transcription);
+      const result = await toggleRecording(conversationId);
+      if (result) {
+        onTranscription(result.text, result.audioUrl);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Recording failed';

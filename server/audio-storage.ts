@@ -27,25 +27,29 @@ export async function initializeAudioBucket() {
 
   try {
     // Check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    
+    if (error) {
+      console.error('Error listing buckets:', error);
+      return false;
+    }
+
+    console.log('Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
+    
     const bucketExists = buckets?.some(bucket => bucket.name === AUDIO_BUCKET);
 
     if (!bucketExists) {
-      // Create bucket with public access
-      const { data, error } = await supabase.storage.createBucket(AUDIO_BUCKET, {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB limit
-        allowedMimeTypes: ['audio/webm', 'audio/mpeg', 'audio/mp3', 'audio/wav'],
-      });
-
-      if (error) {
-        console.error('Error creating audio bucket:', error);
-        return false;
-      }
-
-      console.log('Audio bucket created successfully');
+      console.warn(`\n⚠️  Audio bucket '${AUDIO_BUCKET}' not found.`);
+      console.warn('Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
+      console.warn('\nPlease create it manually in Supabase Dashboard:');
+      console.warn('1. Go to Storage section');
+      console.warn('2. Create new bucket named "conversation-audio"');
+      console.warn('3. Set as PUBLIC bucket');
+      console.warn('4. Restart the server\n');
+      return false;
     }
 
+    console.log(`✅ Audio bucket '${AUDIO_BUCKET}' is ready`);
     return true;
   } catch (error) {
     console.error('Error initializing audio bucket:', error);

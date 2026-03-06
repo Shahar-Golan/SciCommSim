@@ -65,25 +65,49 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
       // Auto-generate greeting from AI
       const greetingMessage = "Hi! Can you tell me about your research?";
-      const aiMessage = addMessage('ai', greetingMessage);
+      
+      // Generate and upload greeting audio
+      let greetingAudioUrl: string | null = null;
+      let audioBuffer: string | null = null;
+      try {
+        const audioResponse = await apiRequest("POST", "/api/audio/upload-ai", {
+          text: greetingMessage,
+          conversationId: conversation.id,
+          timestamp: new Date().toISOString(),
+        });
+        const audioResult = await audioResponse.json();
+        greetingAudioUrl = audioResult.audioUrl;
+        audioBuffer = audioResult.audioBuffer;
+      } catch (audioError) {
+        console.error("Failed to upload greeting audio:", audioError);
+        // Continue even if audio upload fails
+      }
+
+      const aiMessage = addMessage('ai', greetingMessage, greetingAudioUrl);
 
       // Update conversation with greeting
       await apiRequest("PATCH", `/api/conversations/${conversation.id}`, {
         transcript: [aiMessage],
       });
 
-      // Generate and play greeting audio
-      try {
-        const audioUrl = await synthesizeSpeech(greetingMessage);
-        setCurrentAudioUrl(audioUrl);
-        setIsPlayingAudio(true);
-        
-        await playAudio(audioUrl);
-        setIsPlayingAudio(false);
-        setAudioProgress(0);
-      } catch (audioError) {
-        console.error("Failed to play greeting audio:", audioError);
-        // Continue even if audio fails
+      // Play greeting audio from buffer
+      if (audioBuffer) {
+        try {
+          const audioBlob = new Blob(
+            [Uint8Array.from(atob(audioBuffer), c => c.charCodeAt(0))],
+            { type: 'audio/mpeg' }
+          );
+          const audioUrl = URL.createObjectURL(audioBlob);
+          setCurrentAudioUrl(audioUrl);
+          setIsPlayingAudio(true);
+          
+          await playAudio(audioUrl);
+          setIsPlayingAudio(false);
+          setAudioProgress(0);
+        } catch (audioError) {
+          console.error("Failed to play greeting audio:", audioError);
+          // Continue even if audio fails
+        }
       }
     } catch (error) {
       console.error("Failed to initialize conversation:", error);
@@ -95,20 +119,21 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
     }
   };
 
-  const addMessage = (role: 'student' | 'ai', content: string) => {
+  const addMessage = (role: 'student' | 'ai', content: string, audioUrl?: string | null) => {
     const newMessage: Message = {
       role,
       content,
       timestamp: new Date().toISOString(),
+      ...(audioUrl && { audioUrl }), // Only add audioUrl if it exists
     };
     setMessages(prev => [...prev, newMessage]);
     return newMessage;
   };
 
-  const handleStudentTranscription = async (text: string) => {
+  const handleStudentTranscription = async (text: string, audioUrl: string | null) => {
     if (!text.trim()) return;
 
-    const studentMessage = addMessage('student', text);
+    const studentMessage = addMessage('student', text, audioUrl);
     const updatedMessages = [...messages, studentMessage];
 
     // Check if student wants to end conversation
@@ -134,7 +159,24 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       });
       const result = await response.json();
       
-      const aiMessage = addMessage('ai', result.response);
+      // Generate and upload AI audio
+      let aiAudioUrl: string | null = null;
+      let audioBuffer: string | null = null;
+      try {
+        const audioResponse = await apiRequest("POST", "/api/audio/upload-ai", {
+          text: result.response,
+          conversationId,
+          timestamp: new Date().toISOString(),
+        });
+        const audioResult = await audioResponse.json();
+        aiAudioUrl = audioResult.audioUrl;
+        audioBuffer = audioResult.audioBuffer;
+      } catch (audioError) {
+        console.error("Failed to upload AI audio:", audioError);
+        // Continue even if audio upload fails
+      }
+
+      const aiMessage = addMessage('ai', result.response, aiAudioUrl);
       const finalMessages = [...updatedMessages, aiMessage];
 
       // Update conversation with AI response
@@ -142,14 +184,20 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
         transcript: finalMessages,
       });
 
-      // Generate and play audio
-      const audioUrl = await synthesizeSpeech(result.response);
-      setCurrentAudioUrl(audioUrl);
-      setIsPlayingAudio(true);
-      
-      await playAudio(audioUrl);
-      setIsPlayingAudio(false);
-      setAudioProgress(0);
+      // Play audio from buffer
+      if (audioBuffer) {
+        const audioBlob = new Blob(
+          [Uint8Array.from(atob(audioBuffer), c => c.charCodeAt(0))],
+          { type: 'audio/mpeg' }
+        );
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setCurrentAudioUrl(audioUrl);
+        setIsPlayingAudio(true);
+        
+        await playAudio(audioUrl);
+        setIsPlayingAudio(false);
+        setAudioProgress(0);
+      }
       
     } catch (error) {
       console.error("Failed to generate AI response:", error);
@@ -240,6 +288,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
               onTranscription={handleStudentTranscription}
               onError={handleTranscriptionError}
               disabled={isProcessingAI}
+              conversationId={conversationId}
             />
 
             {/* Conversation Controls */}

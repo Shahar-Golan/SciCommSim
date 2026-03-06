@@ -315,6 +315,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint to check audio storage status
+  app.get("/api/test/audio-storage", async (req, res) => {
+    try {
+      const bucketStatus = await initializeAudioBucket();
+      res.json({ 
+        status: bucketStatus ? 'ready' : 'not-ready',
+        message: bucketStatus ? 'Audio storage bucket is accessible' : 'Audio storage bucket not found'
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
