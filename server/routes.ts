@@ -196,10 +196,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ttsElapsed = Date.now() - ttsStart;
       console.log(`[PERF] TTS completed in ${ttsElapsed}ms`);
       
+      const totalElapsed = Date.now() - startTime;
+      console.log(`[PERF] Total audio generation: ${totalElapsed}ms - returning to client immediately`);
+
+      // Return audio buffer immediately to client
+      const audioBase64 = audioBuffer.toString('base64');
+      res.json({ audioUrl: null, audioBuffer: audioBase64 });
+
+      // Upload to Supabase Storage in background (don't await)
       const uploadStart = Date.now();
-      
-      // Upload to Supabase Storage
-      const audioUrl = await uploadAudio(
+      uploadAudio(
         audioBuffer,
         'audio/mpeg',
         {
@@ -207,22 +213,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: 'ai',
           timestamp: timestamp || new Date().toISOString(),
         }
-      );
+      )
+        .then((audioUrl) => {
+          const uploadElapsed = Date.now() - uploadStart;
+          console.log(`[PERF] Background upload completed in ${uploadElapsed}ms`);
+          
+          // Update conversation with final audio URL
+          if (audioUrl && conversationId) {
+            storage.getConversation(conversationId)
+              .then(conversation => {
+                if (conversation && conversation.transcript) {
+                  // Find the last AI message and update its audioUrl
+                  const transcript = [...conversation.transcript];
+                  for (let i = transcript.length - 1; i >= 0; i--) {
+                    if (transcript[i].role === 'ai' && !transcript[i].audioUrl) {
+                      transcript[i].audioUrl = audioUrl;
+                      return storage.updateConversation(conversationId, { transcript });
+                    }
+                  }
+                }
+              })
+              .then(() => {
+                console.log(`[PERF] DB updated with audio URL`);
+              })
+              .catch((error) => {
+                console.error('[PERF] Failed to update conversation with audio URL:', error);
+              });
+          }
+        })
+        .catch((error) => {
+          console.error('[PERF] Background upload failed:', error);
+        });
 
-      const uploadElapsed = Date.now() - uploadStart;
-      console.log(`[PERF] Audio upload completed in ${uploadElapsed}ms`);
-      
-      const totalElapsed = Date.now() - startTime;
-      console.log(`[PERF] Total audio processing: ${totalElapsed}ms (TTS: ${ttsElapsed}ms, Upload: ${uploadElapsed}ms)`);
-
-      if (!audioUrl) {
-        return res.status(500).json({ message: "Failed to upload audio" });
-      }
-
-      res.json({ audioUrl, audioBuffer: audioBuffer.toString('base64') });
     } catch (error) {
-      console.error("AI audio upload error:", error);
-      res.status(500).json({ message: "Failed to upload AI audio" });
+      console.error("AI audio generation error:", error);
+      res.status(500).json({ message: "Failed to generate AI audio" });
     }
   });
 
