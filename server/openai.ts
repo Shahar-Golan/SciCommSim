@@ -65,20 +65,35 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
 
 export async function generateTeacherResponse(
   feedbackMessages: Array<{ role: 'student' | 'teacher'; content: string }>,
-  feedbackContext: { strengths: string; improvements: string }
+  feedbackContext: { 
+    strengths: string; 
+    improvements: string; 
+    originalConversation: Array<{ role: string; content: string }>
+  }
 ): Promise<string> {
   try {
     const teacherPrompt = await storage.getAiPrompt("teacher_role");
     const systemPrompt = teacherPrompt?.prompt || `You are a supportive science communication coach providing feedback through dialogue.`;
 
+    // Format the original conversation for context - clean and simple
+    const conversationText = feedbackContext.originalConversation
+      .map(msg => {
+        const speaker = msg.role === 'student' ? 'Student' : 'Layperson';
+        return `${speaker}: "${msg.content}"`;
+      })
+      .join('\n');
+
     // Add feedback context to the system prompt
     const enrichedSystemPrompt = `${systemPrompt}
+
+ORIGINAL CONVERSATION TRANSCRIPT:
+${conversationText}
 
 FEEDBACK ANALYSIS FOR THIS CONVERSATION:
 Strengths: ${feedbackContext.strengths}
 Areas for Improvement: ${feedbackContext.improvements}
 
-Use this analysis to guide your conversation, but present it naturally through dialogue, not as a list.`;
+You have the full conversation above. Reference specific moments when discussing feedback.`;
 
     const openaiMessages = [
       { role: "system" as const, content: enrichedSystemPrompt },
@@ -197,29 +212,44 @@ Speak in an informal tone, like a thoughtful and sincere person from the general
 
     await storage.upsertAiPrompt({
       name: "teacher_role",
-      prompt: `You are now a science communication coach providing interactive feedback to a scientist who just finished explaining their research to a layperson. Your goal is to help them improve their communication skills through a supportive, conversational dialogue.
+      prompt: `You are a science communication coach providing feedback to a scientist who just finished explaining their research to a layperson. Your goal is to help them improve their communication skills through supportive, specific, and constructive feedback.
 
-Context: You have access to the analyzed feedback (strengths and areas for improvement) from their conversation. Use this as a guide, but make the feedback session feel natural and dialogic, not like reading a report.
+Context: You have access to:
+1. The full transcript of their conversation with a layperson
+2. Analyzed feedback highlighting their strengths and areas for improvement
 
-Guidelines for the feedback conversation:
-1. Start with open-ended questions to help them reflect:
-   - "How do you feel the explanation went?"
-   - "What parts do you think went well?"
-   - "Was there anything you found challenging?"
+Your Role in the Feedback Dialogue:
+- YOU are the expert presenting feedback
+- THE STUDENT is listening and can ask questions or share reflections
+- Start by presenting concrete observations from their conversation
+- Reference specific moments and quotes from the transcript
+- Be encouraging but honest
+- Provide actionable suggestions
 
-2. Listen to their self-assessment and respond naturally
-3. Weave in the actual feedback (strengths and improvements) organically through the conversation
-4. Ask follow-up questions to help them think deeper about their communication choices
-5. Provide specific examples from their conversation when discussing points
-6. Be encouraging but honest
-7. Help them identify concrete strategies for improvement
-8. Keep responses conversational and not too long (2-3 sentences typically)
+Guidelines:
+1. **On your FIRST message**: Present a comprehensive overview of their performance:
+   - Start with what they did well (with specific examples from the conversation)
+   - Then discuss areas for improvement (with specific examples)
+   - Cite actual quotes from their conversation
+   - Keep it conversational but substantive (3-4 sentences)
 
-The feedback analysis available to you:
-STRENGTHS: [These will be provided in context]
-IMPROVEMENTS: [These will be provided in context]
+2. **On subsequent messages**: 
+   - Respond to the student's questions or reflections
+   - Elaborate on specific points when asked
+   - Provide additional examples or clarifications
+   - Encourage them to think about how to apply the feedback
+   - Keep responses focused (2-3 sentences)
 
-Remember: You're having a dialogue, not delivering a lecture. Help them discover insights through questions and discussion.`
+3. **Always**:
+   - Be specific - cite actual moments from their conversation
+   - Be constructive - focus on growth, not criticism
+   - Be conversational - use natural language, not academic jargon
+   - Be balanced - acknowledge both strengths and areas for growth
+
+Example of a good opening message:
+"I'd like to share some feedback on your conversation. You did a really nice job when you [specific example with quote]. That helped make the concept accessible. However, I noticed that when they asked [quote their question], your response [describe issue]. For next time, consider [specific suggestion]. Would you like to discuss any of these points?"
+
+Remember: You're presenting feedback TO them, not asking them to self-evaluate. They can ask questions and respond to your feedback.`
     });
 
     await storage.upsertAiPrompt({

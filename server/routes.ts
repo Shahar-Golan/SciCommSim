@@ -247,7 +247,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/feedback", async (req, res) => {
     console.log("Feedback API called with:", req.body);
     try {
-      const { conversationId, messages } = req.body;
+      const { conversationId } = req.body;
+      
+      // Fetch the conversation to get the actual transcript
+      const conversation = await storage.getConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      const messages = conversation.transcript || [];
       console.log("Generating feedback for conversation:", conversationId, "with", messages?.length, "messages");
       
       const feedbackData = await generateFeedback(messages);
@@ -292,8 +300,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
-      // Generate initial teacher greeting
-      const initialMessage = "Hello! I'd like to discuss your conversation with you. How do you feel the explanation went?";
+      // Get the original conversation transcript
+      const conversation = await storage.getConversation(req.body.conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      // Clean up the conversation - extract only role and content for teacher
+      const cleanConversation = (conversation.transcript || []).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Generate initial teacher message with feedback presentation
+      const initialMessage = await generateTeacherResponse(
+        [],
+        {
+          strengths: feedback.strengths || "",
+          improvements: feedback.improvements || "",
+          originalConversation: cleanConversation,
+        }
+      );
       
       // Generate and upload greeting audio with male voice
       const audioBuffer = await generateSpeech(initialMessage, "echo");
@@ -340,6 +367,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
+      // Get the original conversation transcript
+      const conversation = await storage.getConversation(req.body.conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      // Clean up the conversation - extract only role and content for teacher
+      const cleanConversation = (conversation.transcript || []).map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
       // Add student message to transcript
       const updatedTranscript = [
         ...(feedback.dialogueTranscript || []),
@@ -352,6 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           strengths: feedback.strengths || "",
           improvements: feedback.improvements || "",
+          originalConversation: cleanConversation,
         }
       );
 

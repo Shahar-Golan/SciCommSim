@@ -33,10 +33,9 @@ export default function FeedbackDialogue({
 
   const startFeedbackDialogue = async () => {
     try {
-      // First, generate feedback analysis (this should already exist)
+      // First, generate feedback analysis (backend will fetch conversation)
       const feedbackResponse = await apiRequest("POST", "/api/feedback", {
         conversationId,
-        messages: [], // The backend will fetch from conversation
       });
       
       const feedbackData = await feedbackResponse.json();
@@ -171,7 +170,7 @@ export default function FeedbackDialogue({
                 Feedback Dialogue - Conversation {conversationNumber}
               </h2>
               <p className="text-slate-600">
-                Let's discuss how your explanation went. Share your thoughts and reflect on your communication.
+                Your coach will share feedback on your conversation. Listen and feel free to ask questions or share your thoughts.
               </p>
             </div>
           </div>
