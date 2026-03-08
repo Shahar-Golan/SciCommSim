@@ -25,14 +25,19 @@ export default function FeedbackDialogue({
   const [isProcessingTeacher, setIsProcessingTeacher] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [isPreparingFeedback, setIsPreparingFeedback] = useState(true);
+  const [feedbackReady, setFeedbackReady] = useState(false);
+  const [firstMessage, setFirstMessage] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    startFeedbackDialogue();
+    prepareFeedbackDialogue();
   }, []);
 
-  const startFeedbackDialogue = async () => {
+  const prepareFeedbackDialogue = async () => {
     try {
+      setIsPreparingFeedback(true);
+      
       // First, generate feedback analysis (backend will fetch conversation)
       const feedbackResponse = await apiRequest("POST", "/api/feedback", {
         conversationId,
@@ -40,7 +45,7 @@ export default function FeedbackDialogue({
       
       const feedbackData = await feedbackResponse.json();
       
-      // Start the dialogue
+      // Prepare the dialogue (but don't start it yet)
       const dialogueResponse = await apiRequest("POST", "/api/feedback-dialogue/start", {
         conversationId,
         feedbackId: feedbackData.id,
@@ -48,14 +53,33 @@ export default function FeedbackDialogue({
       
       const result = await dialogueResponse.json();
       setFeedbackId(result.feedbackId);
-      setMessages([result.message]);
+      setFirstMessage(result);
+      setIsPreparingFeedback(false);
+      setFeedbackReady(true);
+    } catch (error) {
+      console.error("Failed to prepare feedback dialogue:", error);
+      setIsPreparingFeedback(false);
+      toast({
+        title: "Error",
+        description: "Failed to prepare feedback dialogue. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startFeedbackDialogue = async () => {
+    if (!firstMessage) return;
+    
+    try {
+      setMessages([firstMessage.message]);
       setHasStarted(true);
+      setFeedbackReady(false);
 
       // Play the greeting
-      if (result.audioBuffer) {
+      if (firstMessage.audioBuffer) {
         try {
           const audioBlob = new Blob(
-            [Uint8Array.from(atob(result.audioBuffer), c => c.charCodeAt(0))],
+            [Uint8Array.from(atob(firstMessage.audioBuffer), c => c.charCodeAt(0))],
             { type: 'audio/mpeg' }
           );
           const audioUrl = URL.createObjectURL(audioBlob);
@@ -65,6 +89,7 @@ export default function FeedbackDialogue({
           setIsPlayingAudio(false);
         } catch (audioError) {
           console.error("Failed to play audio:", audioError);
+          setIsPlayingAudio(false);
         }
       }
     } catch (error) {
@@ -146,13 +171,45 @@ export default function FeedbackDialogue({
     }
   };
 
-  if (!hasStarted) {
+  if (isPreparingFeedback) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-slate-600">Starting feedback dialogue...</p>
+          <p className="text-slate-600">Preparing your feedback...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (feedbackReady && !hasStarted) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <Card className="max-w-2xl w-full">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-6">
+              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
+                <MessageSquare className="w-10 h-10 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                  Feedback Ready - Conversation {conversationNumber}
+                </h2>
+                <p className="text-slate-600">
+                  Your feedback has been prepared and is ready to begin. Press the button below when you're ready to start the feedback dialogue with your coach.
+                </p>
+              </div>
+              <Button
+                onClick={startFeedbackDialogue}
+                size="lg"
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              >
+                <Volume2 className="mr-2 w-5 h-5" />
+                Start Feedback Dialogue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

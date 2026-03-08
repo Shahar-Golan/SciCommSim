@@ -52,31 +52,32 @@ export function useVoiceRecorder() {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const timestamp = new Date().toISOString();
           
-          // Transcribe audio
+          // Parallelize transcription and upload (independent operations)
           const transcribeFormData = new FormData();
           transcribeFormData.append('audio', audioBlob, 'recording.webm');
-          const transcribeResponse = await apiRequest('POST', '/api/transcribe', transcribeFormData);
-          const transcribeResult = await transcribeResponse.json();
           
-          // Upload audio to storage
-          let audioUrl: string | null = null;
-          try {
-            const uploadFormData = new FormData();
-            uploadFormData.append('audio', audioBlob, 'recording.webm');
-            uploadFormData.append('conversationId', conversationId || 'unknown');
-            uploadFormData.append('role', 'student');
-            uploadFormData.append('timestamp', timestamp);
+          const uploadFormData = new FormData();
+          uploadFormData.append('audio', audioBlob, 'recording.webm');
+          uploadFormData.append('conversationId', conversationId || 'unknown');
+          uploadFormData.append('role', 'student');
+          uploadFormData.append('timestamp', timestamp);
+          
+          const [transcribeResult, uploadResult] = await Promise.all([
+            // Transcribe audio
+            apiRequest('POST', '/api/transcribe', transcribeFormData)
+              .then(res => res.json()),
             
-            const uploadResponse = await apiRequest('POST', '/api/audio/upload', uploadFormData);
-            const uploadResult = await uploadResponse.json();
-            audioUrl = uploadResult.audioUrl;
-          } catch (uploadError) {
-            console.error('Failed to upload audio:', uploadError);
-            // Continue even if upload fails
-          }
+            // Upload audio to storage
+            apiRequest('POST', '/api/audio/upload', uploadFormData)
+              .then(res => res.json())
+              .catch(uploadError => {
+                console.error('Failed to upload audio:', uploadError);
+                return { audioUrl: null }; // Continue even if upload fails
+              })
+          ]);
           
           setIsProcessing(false);
-          resolve({ text: transcribeResult.text, audioUrl });
+          resolve({ text: transcribeResult.text, audioUrl: uploadResult.audioUrl });
         } catch (error) {
           setIsProcessing(false);
           reject(error);
