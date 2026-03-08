@@ -179,6 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Upload AI-generated audio (from TTS) and get URL
   app.post("/api/audio/upload-ai", async (req, res) => {
+    const startTime = Date.now();
     try {
       const { text, conversationId, timestamp } = req.body;
 
@@ -186,9 +187,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No text provided" });
       }
 
+      console.log(`[PERF] Starting TTS generation for ${text.length} characters...`);
+      const ttsStart = Date.now();
+      
       // Generate speech
       const audioBuffer = await generateSpeech(text);
-
+      
+      const ttsElapsed = Date.now() - ttsStart;
+      console.log(`[PERF] TTS completed in ${ttsElapsed}ms`);
+      
+      const uploadStart = Date.now();
+      
       // Upload to Supabase Storage
       const audioUrl = await uploadAudio(
         audioBuffer,
@@ -199,6 +208,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timestamp: timestamp || new Date().toISOString(),
         }
       );
+
+      const uploadElapsed = Date.now() - uploadStart;
+      console.log(`[PERF] Audio upload completed in ${uploadElapsed}ms`);
+      
+      const totalElapsed = Date.now() - startTime;
+      console.log(`[PERF] Total audio processing: ${totalElapsed}ms (TTS: ${ttsElapsed}ms, Upload: ${uploadElapsed}ms)`);
 
       if (!audioUrl) {
         return res.status(500).json({ message: "Failed to upload audio" });
@@ -213,9 +228,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // AI response generation
   app.post("/api/ai-response", async (req, res) => {
+    const startTime = Date.now();
     try {
       const { messages } = req.body;
+      console.log(`[PERF] Starting AI response generation...`);
+      
       const response = await generateLaypersonResponse(messages);
+      
+      const elapsed = Date.now() - startTime;
+      console.log(`[PERF] AI response generated in ${elapsed}ms`);
+      
       res.json({ response });
     } catch (error) {
       console.error("AI response error:", error);

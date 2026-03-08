@@ -22,12 +22,14 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
 
 export async function generateSpeech(text: string, voice: string = "alloy"): Promise<Buffer> {
   try {
+    console.log(`[TTS] Generating speech with ${voice} voice...`);
     const response = await openai.audio.speech.create({
       model: "tts-1",
       voice: voice as any,
       input: text,
     });
     
+    console.log(`[TTS] Speech generation complete, converting to buffer...`);
     return Buffer.from(await response.arrayBuffer());
   } catch (error) {
     console.error("TTS error:", error);
@@ -37,6 +39,7 @@ export async function generateSpeech(text: string, voice: string = "alloy"): Pro
 
 export async function generateLaypersonResponse(messages: Message[]): Promise<string> {
   try {
+    console.log(`[AI] Generating response for ${messages.length} messages...`);
     const laypersonPrompt = await storage.getAiPrompt("layperson_role");
     const systemPrompt = laypersonPrompt?.prompt || `You are playing the role of a woman sitting next to a scientist in a doctor's waiting room, who is curious about science but has no technical background. You are interested in learning about the student's research but will ask questions that a regular person would ask. You might express concerns, ask for clarification, or relate the research to everyday experiences. Be friendly, curious, and engaging, but don't hesitate to say when something is confusing. Ask follow-up questions and show genuine interest. Keep your responses conversational and not too long. IMPORTANT: If the scientist greets you or introduces themselves, respond warmly and then ask about their research. Never reverse roles - you are always the curious listener, not someone with research to share. If the scientist wants to speak in a language other than English, you should comply and continue in that language.`;
 
@@ -48,6 +51,9 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
       }))
     ];
 
+    console.log(`[AI] Calling GPT-4o...`);
+    const apiStart = Date.now();
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: openaiMessages,
@@ -55,7 +61,10 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
       temperature: 0.8,
     });
 
+    const apiElapsed = Date.now() - apiStart;
+    console.log(`[AI] GPT-4o responded in ${apiElapsed}ms`);
     console.log("AI Response:", response.choices[0].message.content);
+    
     return response.choices[0].message.content || "I'm sorry, I didn't catch that. Could you explain it again?";
   } catch (error) {
     console.error("ChatGPT error:", error);

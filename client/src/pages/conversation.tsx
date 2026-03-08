@@ -133,6 +133,9 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const handleStudentTranscription = async (text: string, audioUrl: string | null) => {
     if (!text.trim()) return;
 
+    const overallStart = Date.now();
+    console.log(`[CLIENT] Starting AI response flow...`);
+
     const studentMessage = addMessage('student', text, audioUrl);
     const updatedMessages = [...messages, studentMessage];
 
@@ -142,47 +145,67 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       return;
     }
 
-    // Update conversation transcript
-    try {
-      await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
-        transcript: updatedMessages,
-      });
-    } catch (error) {
-      console.error("Failed to update transcript:", error);
-    }
-
-    // Generate AI response
+    // Start AI response immediately (don't wait for DB)
     setIsProcessingAI(true);
-    try {
-      const response = await apiRequest("POST", "/api/ai-response", {
+    
+    console.log(`[CLIENT] Requesting AI response...`);
+    const aiStart = Date.now();
+    
+    // Run AI request and DB update in parallel
+    const [aiResponseResult, _dbUpdate1] = await Promise.all([
+      apiRequest("POST", "/api/ai-response", {
         messages: updatedMessages,
-      });
-      const result = await response.json();
+      }).then(res => res.json()),
       
+      // DB update in background
+      (async () => {
+        const dbStart = Date.now();
+        try {
+          await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
+            transcript: updatedMessages,
+          });
+          console.log(`[CLIENT] DB update 1 took ${Date.now() - dbStart}ms`);
+        } catch (error) {
+          console.error("Failed to update transcript:", error);
+        }
+      })()
+    ]);
+    
+    console.log(`[CLIENT] AI response received in ${Date.now() - aiStart}ms`);
+    
+    try {
       // Generate and upload AI audio
       let aiAudioUrl: string | null = null;
       let audioBuffer: string | null = null;
-      try {
-        const audioResponse = await apiRequest("POST", "/api/audio/upload-ai", {
-          text: result.response,
-          conversationId,
-          timestamp: new Date().toISOString(),
-        });
-        const audioResult = await audioResponse.json();
-        aiAudioUrl = audioResult.audioUrl;
-        audioBuffer = audioResult.audioBuffer;
-      } catch (audioError) {
-        console.error("Failed to upload AI audio:", audioError);
-        // Continue even if audio upload fails
-      }
+      
+      console.log(`[CLIENT] Requesting TTS generation...`);
+      const ttsStart = Date.now();
+      
+      const audioResult = await apiRequest("POST", "/api/audio/upload-ai", {
+        text: aiResponseResult.response,
+        conversationId,
+        timestamp: new Date().toISOString(),
+      }).then(res => res.json());
+      
+      aiAudioUrl = audioResult.audioUrl;
+      audioBuffer = audioResult.audioBuffer;
+      
+      console.log(`[CLIENT] TTS + Upload completed in ${Date.now() - ttsStart}ms`);
 
-      const aiMessage = addMessage('ai', result.response, aiAudioUrl);
+      const aiMessage = addMessage('ai', aiResponseResult.response, aiAudioUrl);
       const finalMessages = [...updatedMessages, aiMessage];
 
-      // Update conversation with AI response
-      await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
+      // Update conversation with AI response (non-blocking)
+      const dbStart2 = Date.now();
+      apiRequest("PATCH", `/api/conversations/${conversationId}`, {
         transcript: finalMessages,
+      }).then(() => {
+        console.log(`[CLIENT] DB update 2 took ${Date.now() - dbStart2}ms`);
+      }).catch(error => {
+        console.error("Failed to update conversation with AI response:", error);
       });
+      
+      console.log(`[CLIENT] Total time: ${Date.now() - overallStart}ms`);
 
       // Play audio from buffer
       if (audioBuffer) {
