@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
-import { transcribeAudio, generateSpeech, generateLaypersonResponse, generateFeedback, initializeDefaultPrompts } from "./openai";
+import { transcribeAudio, generateSpeech, generateLaypersonResponse, generateFeedback, generateTeacherResponse, initializeDefaultPrompts } from "./openai";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import multer from "multer";
 import { z } from "zod";
@@ -278,6 +278,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching feedback:", error);
       res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+  });
+
+  // Feedback dialogue endpoints
+  app.post("/api/feedback-dialogue/start", async (req, res) => {
+    try {
+      const { feedbackId } = req.body;
+      
+      // Get the feedback record to access strengths/improvements
+      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      // Generate initial teacher greeting
+      const initialMessage = "Hello! I'd like to discuss your conversation with you. How do you feel the explanation went?";
+      
+      // Generate and upload greeting audio with male voice
+      const audioBuffer = await generateSpeech(initialMessage, "echo");
+      const audioUrl = await uploadAudio(
+        audioBuffer,
+        'audio/mpeg',
+        {
+          conversationId: feedback.conversationId,
+          role: 'teacher',
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      const teacherMessage = {
+        role: 'teacher' as const,
+        content: initialMessage,
+        timestamp: new Date().toISOString(),
+        audioUrl: audioUrl || undefined,
+      };
+
+      // Update feedback with initial dialogue transcript
+      await storage.updateFeedback(feedback.id, {
+        dialogueTranscript: [teacherMessage] as any,
+      });
+
+      res.json({ 
+        message: teacherMessage,
+        audioBuffer: audioBuffer.toString('base64'),
+        feedbackId: feedback.id,
+      });
+    } catch (error) {
+      console.error("Failed to start feedback dialogue:", error);
+      res.status(500).json({ message: "Failed to start feedback dialogue" });
+    }
+  });
+
+  app.post("/api/feedback-dialogue/respond", async (req, res) => {
+    try {
+      const { feedbackId, message } = req.body;
+      
+      // Get current feedback with dialogue transcript
+      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      // Add student message to transcript
+      const updatedTranscript = [
+        ...(feedback.dialogueTranscript || []),
+        message
+      ];
+
+      // Generate teacher response based on context
+      const teacherResponse = await generateTeacherResponse(
+        updatedTranscript.map(m => ({ role: m.role, content: m.content })),
+        {
+          strengths: feedback.strengths || "",
+          improvements: feedback.improvements || "",
+        }
+      );
+
+      // Generate and upload teacher response audio with male voice
+      const audioBuffer = await generateSpeech(teacherResponse, "echo");
+      const audioUrl = await uploadAudio(
+        audioBuffer,
+        'audio/mpeg',
+        {
+          conversationId: feedback.conversationId,
+          role: 'teacher',
+          timestamp: new Date().toISOString(),
+        }
+      );
+
+      const teacherMessage = {
+        role: 'teacher' as const,
+        content: teacherResponse,
+        timestamp: new Date().toISOString(),
+        audioUrl: audioUrl || undefined,
+      };
+
+      // Update feedback with new messages
+      await storage.updateFeedback(feedback.id, {
+        dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
+      });
+
+      res.json({ 
+        response: teacherMessage,
+        audioBuffer: audioBuffer.toString('base64'),
+      });
+    } catch (error) {
+      console.error("Failed to generate teacher response:", error);
+      res.status(500).json({ message: "Failed to generate teacher response" });
+    }
+  });
+
+  app.post("/api/feedback-dialogue/complete", async (req, res) => {
+    try {
+      const { feedbackId } = req.body;
+      
+      // Get current feedback
+      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      // Mark dialogue as completed
+      await storage.updateFeedback(feedback.id, {
+        dialogueCompleted: new Date(),
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to complete feedback dialogue:", error);
+      res.status(500).json({ message: "Failed to complete feedback dialogue" });
     }
   });
 

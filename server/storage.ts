@@ -46,6 +46,7 @@ export interface IStorage {
   // Feedback
   createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
   getFeedbackByConversation(conversationId: string): Promise<Feedback | undefined>;
+  updateFeedback(id: string, updates: Partial<Feedback>): Promise<Feedback>;
 
   // AI Prompts
   getAiPrompt(name: string): Promise<AiPrompt | undefined>;
@@ -251,6 +252,21 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(feedback)
       .where(eq(feedback.conversationId, conversationId));
+    return feedbackRecord;
+  }
+
+  async updateFeedback(id: string, updates: Partial<Feedback>): Promise<Feedback> {
+    const processedUpdates = { ...updates };
+    
+    if (updates.dialogueCompleted && typeof updates.dialogueCompleted === 'string') {
+      processedUpdates.dialogueCompleted = new Date(updates.dialogueCompleted);
+    }
+    
+    const [feedbackRecord] = await db
+      .update(feedback)
+      .set(processedUpdates)
+      .where(eq(feedback.id, id))
+      .returning();
     return feedbackRecord;
   }
 

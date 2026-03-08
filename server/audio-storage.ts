@@ -69,7 +69,7 @@ export async function uploadAudio(
   contentType: string,
   metadata: {
     conversationId?: string;
-    role?: 'student' | 'ai';
+    role?: 'student' | 'ai' | 'teacher';
     timestamp?: string;
   } = {}
 ): Promise<string | null> {

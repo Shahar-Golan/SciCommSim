@@ -8,7 +8,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Welcome from "@/pages/welcome";
 import Instructions from "@/pages/instructions";
 import Conversation from "@/pages/conversation";
-import FeedbackPage from "@/pages/feedback";
+import FeedbackDialogue from "@/pages/feedback-dialogue";
+import ReadyForRoundTwo from "@/pages/ready-for-round-two";
 import Survey from "@/pages/survey";
 import ThankYou from "@/pages/thank-you";
 import AdminDashboard from "@/pages/admin-dashboard";
@@ -20,6 +21,7 @@ type AppState =
   | "instructions" 
   | "conversation1" 
   | "feedback1" 
+  | "break" 
   | "conversation2" 
   | "feedback2" 
   | "survey" 
@@ -101,6 +103,10 @@ function App() {
   };
 
   const handleFeedback1Next = () => {
+    setCurrentState("break");
+  };
+
+  const handleBreakNext = () => {
     setCurrentState("conversation2");
   };
 
@@ -152,12 +158,15 @@ function App() {
       
       case "feedback1":
         return (
-          <FeedbackPage 
+          <FeedbackDialogue 
             conversationId={sessionData.conversation1Id!}
             conversationNumber={1}
-            onNext={handleFeedback1Next}
+            onComplete={handleFeedback1Next}
           />
         );
+      
+      case "break":
+        return <ReadyForRoundTwo onNext={handleBreakNext} />;
       
       case "conversation2":
         return (
@@ -170,10 +179,10 @@ function App() {
       
       case "feedback2":
         return (
-          <FeedbackPage 
+          <FeedbackDialogue 
             conversationId={sessionData.conversation2Id!}
             conversationNumber={2}
-            onNext={handleFeedback2Next}
+            onComplete={handleFeedback2Next}
           />
         );
       
@@ -233,11 +242,11 @@ function App() {
               <div className="hidden md:flex items-center space-x-4">
                 <span className="text-sm text-slate-600">Session Progress</span>
                 <div className="flex space-x-2">
-                  {["welcome", "instructions", "conversation1", "feedback1", "conversation2", "feedback2", "survey", "thankYou"].map((state, index) => (
+                  {["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "survey", "thankYou"].map((state, index) => (
                     <div 
                       key={state}
                       className={`w-2 h-2 rounded-full ${
-                        ["welcome", "instructions", "conversation1", "feedback1", "conversation2", "feedback2", "survey", "thankYou"].indexOf(currentState) >= index
+                        ["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "survey", "thankYou"].indexOf(currentState) >= index
                           ? "bg-blue-500" 
                           : "bg-slate-300"
                       }`}

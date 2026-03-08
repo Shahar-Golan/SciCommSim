@@ -52,6 +52,13 @@ export const feedback = pgTable("feedback", {
   strengths: text("strengths"),
   improvements: text("improvements"),
   summary: text("summary"),
+  dialogueTranscript: jsonb("dialogue_transcript").$type<Array<{
+    role: 'student' | 'teacher';
+    content: string;
+    timestamp: string;
+    audioUrl?: string;
+  }>>().default([]),
+  dialogueCompleted: timestamp("dialogue_completed"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -110,6 +117,13 @@ export type InsertAiPrompt = z.infer<typeof insertAiPromptSchema>;
 
 export type Message = {
   role: 'student' | 'ai';
+  content: string;
+  timestamp: string;
+  audioUrl?: string;
+};
+
+export type FeedbackMessage = {
+  role: 'student' | 'teacher';
   content: string;
   timestamp: string;
   audioUrl?: string;

@@ -10,7 +10,7 @@ const openai = new OpenAI({
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   try {
     const transcription = await openai.audio.transcriptions.create({
-      file: new File([audioBuffer], "audio.webm", { type: "audio/webm" }),
+      file: new File([new Uint8Array(audioBuffer)], "audio.webm", { type: "audio/webm" }),
       model: "whisper-1",
     });
     return transcription.text;
@@ -20,11 +20,11 @@ export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   }
 }
 
-export async function generateSpeech(text: string): Promise<Buffer> {
+export async function generateSpeech(text: string, voice: string = "alloy"): Promise<Buffer> {
   try {
     const response = await openai.audio.speech.create({
       model: "tts-1",
-      voice: "alloy",
+      voice: voice as any,
       input: text,
     });
     
@@ -60,6 +60,45 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
   } catch (error) {
     console.error("ChatGPT error:", error);
     throw new Error("Failed to generate AI response");
+  }
+}
+
+export async function generateTeacherResponse(
+  feedbackMessages: Array<{ role: 'student' | 'teacher'; content: string }>,
+  feedbackContext: { strengths: string; improvements: string }
+): Promise<string> {
+  try {
+    const teacherPrompt = await storage.getAiPrompt("teacher_role");
+    const systemPrompt = teacherPrompt?.prompt || `You are a supportive science communication coach providing feedback through dialogue.`;
+
+    // Add feedback context to the system prompt
+    const enrichedSystemPrompt = `${systemPrompt}
+
+FEEDBACK ANALYSIS FOR THIS CONVERSATION:
+Strengths: ${feedbackContext.strengths}
+Areas for Improvement: ${feedbackContext.improvements}
+
+Use this analysis to guide your conversation, but present it naturally through dialogue, not as a list.`;
+
+    const openaiMessages = [
+      { role: "system" as const, content: enrichedSystemPrompt },
+      ...feedbackMessages.map(msg => ({
+        role: msg.role === "student" ? "user" as const : "assistant" as const,
+        content: msg.content
+      }))
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: openaiMessages,
+      max_tokens: 200,
+      temperature: 0.7,
+    });
+
+    return response.choices[0].message.content || "That's an interesting reflection. What else do you think about your explanation?";
+  } catch (error) {
+    console.error("Teacher response error:", error);
+    throw new Error("Failed to generate teacher response");
   }
 }
 
@@ -154,6 +193,33 @@ Example styles of appropriate questions you can ask:
 * "Can you give me a simple example?"
 
 Speak in an informal tone, like a thoughtful and sincere person from the general public, not a technical expert, a critic, or a fan.`
+    });
+
+    await storage.upsertAiPrompt({
+      name: "teacher_role",
+      prompt: `You are now a science communication coach providing interactive feedback to a scientist who just finished explaining their research to a layperson. Your goal is to help them improve their communication skills through a supportive, conversational dialogue.
+
+Context: You have access to the analyzed feedback (strengths and areas for improvement) from their conversation. Use this as a guide, but make the feedback session feel natural and dialogic, not like reading a report.
+
+Guidelines for the feedback conversation:
+1. Start with open-ended questions to help them reflect:
+   - "How do you feel the explanation went?"
+   - "What parts do you think went well?"
+   - "Was there anything you found challenging?"
+
+2. Listen to their self-assessment and respond naturally
+3. Weave in the actual feedback (strengths and improvements) organically through the conversation
+4. Ask follow-up questions to help them think deeper about their communication choices
+5. Provide specific examples from their conversation when discussing points
+6. Be encouraging but honest
+7. Help them identify concrete strategies for improvement
+8. Keep responses conversational and not too long (2-3 sentences typically)
+
+The feedback analysis available to you:
+STRENGTHS: [These will be provided in context]
+IMPROVEMENTS: [These will be provided in context]
+
+Remember: You're having a dialogue, not delivering a lecture. Help them discover insights through questions and discussion.`
     });
 
     await storage.upsertAiPrompt({
