@@ -369,23 +369,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
       
-      // Generate and upload greeting audio with male voice
+      // Generate greeting audio with male voice
       const audioBuffer = await generateSpeech(initialMessage, "echo");
-      const audioUrl = await uploadAudio(
-        audioBuffer,
-        'audio/mpeg',
-        {
-          conversationId: feedback.conversationId,
-          role: 'teacher',
-          timestamp: new Date().toISOString(),
-        }
-      );
 
       const teacherMessage = {
         role: 'teacher' as const,
         content: initialMessage,
         timestamp: new Date().toISOString(),
-        audioUrl: audioUrl || undefined,
+        audioUrl: undefined, // Will be updated after background upload
       };
 
       // Update feedback with initial dialogue transcript
@@ -393,11 +384,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dialogueTranscript: [teacherMessage] as any,
       });
 
+      // Return audio immediately to client
+      const audioBase64 = audioBuffer.toString('base64');
       res.json({ 
         message: teacherMessage,
-        audioBuffer: audioBuffer.toString('base64'),
+        audioBuffer: audioBase64,
         feedbackId: feedback.id,
       });
+
+      // Upload audio to Supabase in background (non-blocking)
+      uploadAudio(
+        audioBuffer,
+        'audio/mpeg',
+        {
+          conversationId: feedback.conversationId,
+          role: 'teacher',
+          timestamp: new Date().toISOString(),
+        }
+      )
+        .then((audioUrl) => {
+          if (audioUrl) {
+            // Update the first teacher message with audio URL
+            storage.getFeedbackByConversation(feedback.conversationId)
+              .then(updatedFeedback => {
+                if (updatedFeedback && updatedFeedback.dialogueTranscript && updatedFeedback.dialogueTranscript.length > 0) {
+                  const transcript = [...updatedFeedback.dialogueTranscript];
+                  transcript[0].audioUrl = audioUrl;
+                  return storage.updateFeedback(updatedFeedback.id, { dialogueTranscript: transcript as any });
+                }
+              })
+              .catch((error) => {
+                console.error('[FEEDBACK] Failed to update teacher message with audio URL:', error);
+              });
+          }
+        })
+        .catch((error) => {
+          console.error('[FEEDBACK] Background upload failed:', error);
+        });
     } catch (error) {
       console.error("Failed to start feedback dialogue:", error);
       res.status(500).json({ message: "Failed to start feedback dialogue" });
@@ -442,23 +465,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       );
 
-      // Generate and upload teacher response audio with male voice
+      // Generate teacher response audio with male voice
       const audioBuffer = await generateSpeech(teacherResponse, "echo");
-      const audioUrl = await uploadAudio(
-        audioBuffer,
-        'audio/mpeg',
-        {
-          conversationId: feedback.conversationId,
-          role: 'teacher',
-          timestamp: new Date().toISOString(),
-        }
-      );
 
       const teacherMessage = {
         role: 'teacher' as const,
         content: teacherResponse,
         timestamp: new Date().toISOString(),
-        audioUrl: audioUrl || undefined,
+        audioUrl: undefined, // Will be updated after background upload
       };
 
       // Update feedback with new messages
@@ -466,10 +480,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
       });
 
+      // Return audio immediately to client
+      const audioBase64 = audioBuffer.toString('base64');
       res.json({ 
         response: teacherMessage,
-        audioBuffer: audioBuffer.toString('base64'),
+        audioBuffer: audioBase64,
       });
+
+      // Upload audio to Supabase in background (non-blocking)
+      const messageIndex = updatedTranscript.length; // Index of the teacher message we just added
+      uploadAudio(
+        audioBuffer,
+        'audio/mpeg',
+        {
+          conversationId: feedback.conversationId,
+          role: 'teacher',
+          timestamp: new Date().toISOString(),
+        }
+      )
+        .then((audioUrl) => {
+          if (audioUrl) {
+            // Update the teacher message with audio URL
+            storage.getFeedbackByConversation(feedback.conversationId)
+              .then(updatedFeedback => {
+                if (updatedFeedback && updatedFeedback.dialogueTranscript && updatedFeedback.dialogueTranscript[messageIndex]) {
+                  const transcript = [...updatedFeedback.dialogueTranscript];
+                  transcript[messageIndex].audioUrl = audioUrl;
+                  return storage.updateFeedback(updatedFeedback.id, { dialogueTranscript: transcript as any });
+                }
+              })
+              .catch((error) => {
+                console.error('[FEEDBACK] Failed to update teacher message with audio URL:', error);
+              });
+          }
+        })
+        .catch((error) => {
+          console.error('[FEEDBACK] Background upload failed:', error);
+        });
     } catch (error) {
       console.error("Failed to generate teacher response:", error);
       res.status(500).json({ message: "Failed to generate teacher response" });
