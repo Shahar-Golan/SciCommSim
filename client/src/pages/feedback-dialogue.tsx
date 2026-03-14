@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Volume2, MessageSquare, ArrowRight } from "lucide-react";
 import VoiceRecorder from "@/components/voice-recorder";
 import ConversationTranscript from "@/components/conversation-transcript";
@@ -13,6 +21,93 @@ interface FeedbackDialogueProps {
   conversationId: string;
   conversationNumber: number;
   onComplete: () => void;
+}
+
+type ProsodyJobStatus = {
+  status: string;
+  totalSegments: number;
+  processedSegments: number;
+};
+
+type ProsodySegmentStatus = {
+  id: string;
+  segmentIndex: number;
+  status: string;
+  pitchMeanHz: string | number | null;
+  pitchRangeHz: string | number | null;
+  energyVariance: string | number | null;
+  longPauseCount: number | null;
+  pauseFreqPerMin: string | number | null;
+  rawMetrics?: Record<string, unknown> | null;
+};
+
+type ProsodyStatusResponse = {
+  job: ProsodyJobStatus;
+  segments: ProsodySegmentStatus[];
+};
+
+function toNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatNum(value: number | null, digits = 2): string {
+  return value === null ? "-" : value.toFixed(digits);
+}
+
+function getSegmentDurationSec(segment: ProsodySegmentStatus): number {
+  const step2 = (segment.rawMetrics?.step2 || {}) as Record<string, unknown>;
+  const normalizeResult = (step2.normalizeResult || {}) as Record<string, unknown>;
+  const durationSec = toNumber(normalizeResult.durationSec);
+  return durationSec && durationSec > 0 ? durationSec : 1;
+}
+
+function buildProsodyOverview(segments: ProsodySegmentStatus[]) {
+  const completed = segments.filter((s) => s.status === "completed");
+  if (completed.length === 0) {
+    return {
+      completedCount: 0,
+      weightedPitchMeanHz: null as number | null,
+      weightedPitchRangeHz: null as number | null,
+      weightedEnergyVariance: null as number | null,
+      totalLongPauseCount: 0,
+      pauseFreqPerMin: null as number | null,
+    };
+  }
+
+  let totalWeight = 0;
+  let weightedPitchMeanSum = 0;
+  let weightedPitchRangeSum = 0;
+  let weightedEnergyVarSum = 0;
+  let totalLongPauseCount = 0;
+
+  for (const segment of completed) {
+    const weight = getSegmentDurationSec(segment);
+    totalWeight += weight;
+
+    const pitchMean = toNumber(segment.pitchMeanHz);
+    if (pitchMean !== null) weightedPitchMeanSum += pitchMean * weight;
+
+    const pitchRange = toNumber(segment.pitchRangeHz);
+    if (pitchRange !== null) weightedPitchRangeSum += pitchRange * weight;
+
+    const energyVar = toNumber(segment.energyVariance);
+    if (energyVar !== null) weightedEnergyVarSum += energyVar * weight;
+
+    totalLongPauseCount += segment.longPauseCount || 0;
+  }
+
+  const totalDurationMin = totalWeight / 60;
+
+  return {
+    completedCount: completed.length,
+    weightedPitchMeanHz: totalWeight > 0 ? weightedPitchMeanSum / totalWeight : null,
+    weightedPitchRangeHz: totalWeight > 0 ? weightedPitchRangeSum / totalWeight : null,
+    weightedEnergyVariance: totalWeight > 0 ? weightedEnergyVarSum / totalWeight : null,
+    totalLongPauseCount,
+    pauseFreqPerMin: totalDurationMin > 0 ? totalLongPauseCount / totalDurationMin : null,
+  };
 }
 
 export default function FeedbackDialogue({ 
@@ -28,11 +123,66 @@ export default function FeedbackDialogue({
   const [isPreparingFeedback, setIsPreparingFeedback] = useState(true);
   const [feedbackReady, setFeedbackReady] = useState(false);
   const [firstMessage, setFirstMessage] = useState<any>(null);
+  const [prosodyJob, setProsodyJob] = useState<ProsodyJobStatus | null>(null);
+  const [prosodySegments, setProsodySegments] = useState<ProsodySegmentStatus[]>([]);
+  const [isProsodyLoading, setIsProsodyLoading] = useState(true);
   const { toast } = useToast();
+
+  const prosodyOverview = buildProsodyOverview(prosodySegments);
 
   useEffect(() => {
     prepareFeedbackDialogue();
   }, []);
+
+  useEffect(() => {
+    fetchProsodyStatus();
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!prosodyJob) return;
+    if (prosodyJob.status === "completed" || prosodyJob.status === "failed") return;
+
+    const interval = setInterval(() => {
+      fetchProsodyStatus(false);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [conversationId, prosodyJob?.status]);
+
+  const fetchProsodyStatus = async (showErrorToast = true) => {
+    setIsProsodyLoading(true);
+    try {
+      const res = await fetch(`/api/prosody/conversation/${conversationId}/status`, {
+        credentials: "include",
+      });
+
+      if (res.status === 404) {
+        setProsodyJob(null);
+        setProsodySegments([]);
+        return;
+      }
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to load prosody status");
+      }
+
+      const data: ProsodyStatusResponse = await res.json();
+      setProsodyJob(data.job);
+      setProsodySegments(data.segments || []);
+    } catch (error) {
+      console.error("Failed to load prosody status:", error);
+      if (showErrorToast) {
+        toast({
+          title: "Prosody Error",
+          description: "Failed to load prosody results.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsProsodyLoading(false);
+    }
+  };
 
   const prepareFeedbackDialogue = async () => {
     try {
@@ -231,6 +381,116 @@ export default function FeedbackDialogue({
               </p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-700">Prosody Results (Numerical)</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchProsodyStatus(true)}
+              data-testid="button-refresh-prosody"
+            >
+              Refresh
+            </Button>
+          </div>
+
+          {isProsodyLoading ? (
+            <p className="text-slate-600">Loading prosody metrics...</p>
+          ) : !prosodyJob ? (
+            <p className="text-slate-600">Prosody job not found yet for this conversation.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Job Status</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-job-status">
+                    {prosodyJob.status}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Processed Segments</div>
+                  <div className="font-semibold text-slate-800">
+                    {prosodyJob.processedSegments}/{prosodyJob.totalSegments}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Completed Segments</div>
+                  <div className="font-semibold text-slate-800">{prosodyOverview.completedCount}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Pitch Mean (Hz)</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-agg-pitch-mean">
+                    {formatNum(prosodyOverview.weightedPitchMeanHz, 1)}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Pitch Range (Hz)</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-agg-pitch-range">
+                    {formatNum(prosodyOverview.weightedPitchRangeHz, 1)}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Energy Variance</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-agg-energy-var">
+                    {formatNum(prosodyOverview.weightedEnergyVariance, 6)}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Long Pause Count</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-agg-long-pauses">
+                    {prosodyOverview.totalLongPauseCount}
+                  </div>
+                </div>
+                <div className="rounded-lg border bg-white p-3">
+                  <div className="text-xs text-slate-500">Pause Frequency / Min</div>
+                  <div className="font-semibold text-slate-800" data-testid="prosody-agg-pause-freq">
+                    {formatNum(prosodyOverview.pauseFreqPerMin, 2)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Segment</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Duration (s)</TableHead>
+                      <TableHead>Pitch Mean (Hz)</TableHead>
+                      <TableHead>Pitch Range (Hz)</TableHead>
+                      <TableHead>Energy Var</TableHead>
+                      <TableHead>Long Pauses</TableHead>
+                      <TableHead>Pause/Min</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {prosodySegments.map((segment) => {
+                      const duration = getSegmentDurationSec(segment);
+                      return (
+                        <TableRow key={segment.id} data-testid={`prosody-segment-row-${segment.segmentIndex}`}>
+                          <TableCell>{segment.segmentIndex + 1}</TableCell>
+                          <TableCell className="capitalize">{segment.status}</TableCell>
+                          <TableCell>{formatNum(duration, 2)}</TableCell>
+                          <TableCell>{formatNum(toNumber(segment.pitchMeanHz), 1)}</TableCell>
+                          <TableCell>{formatNum(toNumber(segment.pitchRangeHz), 1)}</TableCell>
+                          <TableCell>{formatNum(toNumber(segment.energyVariance), 6)}</TableCell>
+                          <TableCell>{segment.longPauseCount ?? "-"}</TableCell>
+                          <TableCell>{formatNum(toNumber(segment.pauseFreqPerMin), 2)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

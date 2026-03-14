@@ -6,6 +6,7 @@ import { transcribeAudio, generateSpeech, generateLaypersonResponse, generateFee
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
+import { runProsodyPipelineForConversation } from "./prosody-pipeline";
 import multer from "multer";
 import { z } from "zod";
 
@@ -111,6 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const job = await storage.enqueueProsodyJobForConversation(id);
             if (job) {
               console.log(`[PROSODY] Enqueued job ${job.id} for conversation ${id} with ${job.totalSegments} segments`);
+              await runProsodyPipelineForConversation(id);
             }
           } catch (enqueueError) {
             console.error(`[PROSODY] Failed to enqueue job for conversation ${id}:`, enqueueError);
