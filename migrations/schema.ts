@@ -15,19 +15,74 @@ export const aiPrompts = pgTable("ai_prompts", {
 export const feedback = pgTable("feedback", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	conversationId: uuid("conversation_id").notNull(),
-	overallScore: numeric("overall_score", { precision: 4, scale:  2 }),
-	clarityScore: numeric("clarity_score", { precision: 4, scale:  2 }),
-	questionHandlingScore: numeric("question_handling_score", { precision: 4, scale:  2 }),
-	engagementScore: numeric("engagement_score", { precision: 4, scale:  2 }),
-	pacingScore: numeric("pacing_score", { precision: 4, scale:  2 }),
-	recommendations: jsonb().default([]),
-	detailedFeedback: text("detailed_feedback"),
+	strengths: text(),
+	improvements: text(),
+	summary: text(),
+	dialogueTranscript: jsonb("dialogue_transcript").default([]),
+	dialogueCompleted: timestamp("dialogue_completed", { mode: 'string' }),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
 }, (table) => [
 	foreignKey({
 			columns: [table.conversationId],
 			foreignColumns: [conversations.id],
 			name: "feedback_conversation_id_conversations_id_fk"
+		}),
+]);
+
+export const prosodyJobs = pgTable("prosody_jobs", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	conversationId: uuid("conversation_id").notNull(),
+	status: varchar().default('pending').notNull(),
+	totalSegments: integer("total_segments").default(0).notNull(),
+	processedSegments: integer("processed_segments").default(0).notNull(),
+	error: text(),
+	enqueuedAt: timestamp("enqueued_at", { mode: 'string' }).defaultNow(),
+	startedAt: timestamp("started_at", { mode: 'string' }),
+	finishedAt: timestamp("finished_at", { mode: 'string' }),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	unique("prosody_jobs_conversation_id_unique").on(table.conversationId),
+	foreignKey({
+			columns: [table.conversationId],
+			foreignColumns: [conversations.id],
+			name: "prosody_jobs_conversation_id_conversations_id_fk"
+		}),
+]);
+
+export const prosodySegmentMetrics = pgTable("prosody_segment_metrics", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	jobId: uuid("job_id").notNull(),
+	conversationId: uuid("conversation_id").notNull(),
+	feedbackId: uuid("feedback_id"),
+	segmentIndex: integer("segment_index").notNull(),
+	sourceAudioUrl: text("source_audio_url").notNull(),
+	sourceTimestamp: timestamp("source_timestamp", { mode: 'string' }),
+	status: varchar().default('pending').notNull(),
+	pitchMeanHz: numeric("pitch_mean_hz", { precision: 10, scale:  2 }),
+	pitchRangeHz: numeric("pitch_range_hz", { precision: 10, scale:  2 }),
+	energyVariance: numeric("energy_variance", { precision: 12, scale:  6 }),
+	wordsPerMinute: numeric("words_per_minute", { precision: 10, scale:  2 }),
+	longPauseCount: integer("long_pause_count"),
+	pauseFreqPerMin: numeric("pause_freq_per_min", { precision: 10, scale:  2 }),
+	rawMetrics: jsonb("raw_metrics"),
+	error: text(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.jobId],
+			foreignColumns: [prosodyJobs.id],
+			name: "prosody_segment_metrics_job_id_prosody_jobs_id_fk"
+		}),
+	foreignKey({
+			columns: [table.conversationId],
+			foreignColumns: [conversations.id],
+			name: "prosody_segment_metrics_conversation_id_conversations_id_fk"
+		}),
+	foreignKey({
+			columns: [table.feedbackId],
+			foreignColumns: [feedback.id],
+			name: "prosody_segment_metrics_feedback_id_feedback_id_fk"
 		}),
 ]);
 

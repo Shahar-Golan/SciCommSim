@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, generateLaypersonResponse, generateFeedback, generateTeacherResponse, initializeDefaultPrompts } from "./openai";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
+import { runProsodyStep2ForConversation } from "./prosody-step2";
+import { runProsodyStep3ForConversation } from "./prosody-step3";
 import multer from "multer";
 import { z } from "zod";
 
@@ -98,8 +100,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body;
+      const isEndingConversation = Boolean(updates?.endedAt);
       const conversation = await storage.updateConversation(id, updates);
       res.json(conversation);
+
+      // Fire-and-forget enqueue on end: runs in parallel with subsequent text feedback generation.
+      if (isEndingConversation) {
+        setImmediate(async () => {
+          try {
+            const job = await storage.enqueueProsodyJobForConversation(id);
+            if (job) {
+              console.log(`[PROSODY] Enqueued job ${job.id} for conversation ${id} with ${job.totalSegments} segments`);
+            }
+          } catch (enqueueError) {
+            console.error(`[PROSODY] Failed to enqueue job for conversation ${id}:`, enqueueError);
+          }
+        });
+      }
     } catch (error) {
       console.error("Error updating conversation:", error);
       res.status(400).json({ message: "Failed to update conversation" });
@@ -333,6 +350,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching feedback:", error);
       res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+  });
+
+  // Prosody status (job + per-student-segment queue rows)
+  app.get("/api/prosody/conversation/:conversationId/status", async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const [job, segments] = await Promise.all([
+        storage.getProsodyJobByConversation(conversationId),
+        storage.listProsodySegmentsByConversation(conversationId),
+      ]);
+
+      if (!job) {
+        return res.status(404).json({ message: "Prosody job not found" });
+      }
+
+      res.json({ job, segments });
+    } catch (error) {
+      console.error("Error fetching prosody status:", error);
+      res.status(500).json({ message: "Failed to fetch prosody status" });
+    }
+  });
+
+  // Manual step 2 runner for a single conversation (download + normalize only)
+  app.post("/api/prosody/conversation/:conversationId/step2-run", async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const result = await runProsodyStep2ForConversation(conversationId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error running prosody step 2:", error);
+      res.status(500).json({
+        message: "Failed to run prosody step 2",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Manual step 3 runner for a single conversation (extract numeric prosody features)
+  app.post("/api/prosody/conversation/:conversationId/step3-run", async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const result = await runProsodyStep3ForConversation(conversationId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error running prosody step 3:", error);
+      res.status(500).json({
+        message: "Failed to run prosody step 3",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   });
 

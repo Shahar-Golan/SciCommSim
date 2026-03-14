@@ -256,7 +256,7 @@ Guidelines:
    - Be balanced - acknowledge both strengths and areas for growth
 
 Example of a good opening message:
-"I'd like to share some feedback on your conversation. You did a really nice job when you [specific example with quote]. That helped make the concept accessible. However, I noticed that when they asked [quote their question], your response [describe issue]. For next time, consider [specific suggestion]. Would you like to discuss any of these points?"
+"You did a really nice job when you [specific example with quote]. That helped make the concept accessible. However, I noticed that when they asked [quote their question], your response [describe issue]. For next time, consider [specific suggestion]. Would you like to discuss any of these points?"
 
 Remember: You're presenting feedback TO them, not asking them to self-evaluate. They can ask questions and respond to your feedback.`
     });

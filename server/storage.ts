@@ -4,6 +4,8 @@ import {
   conversations,
   feedback,
   aiPrompts,
+  prosodyJobs,
+  prosodySegmentMetrics,
   type Student,
   type InsertStudent,
   type TrainingSession,
@@ -14,9 +16,11 @@ import {
   type InsertFeedback,
   type AiPrompt,
   type InsertAiPrompt,
+  type ProsodyJob,
+  type ProsodySegmentMetric,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, inArray } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Students
@@ -52,6 +56,11 @@ export interface IStorage {
   getAiPrompt(name: string): Promise<AiPrompt | undefined>;
   upsertAiPrompt(prompt: InsertAiPrompt): Promise<AiPrompt>;
   getAllAiPrompts(): Promise<AiPrompt[]>;
+
+  // Prosody async jobs
+  enqueueProsodyJobForConversation(conversationId: string): Promise<ProsodyJob | undefined>;
+  getProsodyJobByConversation(conversationId: string): Promise<ProsodyJob | undefined>;
+  listProsodySegmentsByConversation(conversationId: string): Promise<ProsodySegmentMetric[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -297,6 +306,88 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(aiPrompts);
+  }
+
+  async enqueueProsodyJobForConversation(conversationId: string): Promise<ProsodyJob | undefined> {
+    const conversation = await this.getConversation(conversationId);
+    if (!conversation) {
+      return undefined;
+    }
+
+    const studentAudioTurns = (conversation.transcript || [])
+      .filter((msg: any) => msg.role === "student" && typeof msg.audioUrl === "string" && msg.audioUrl.length > 0)
+      .sort((a: any, b: any) => {
+        const aTime = Date.parse(a.timestamp || "");
+        const bTime = Date.parse(b.timestamp || "");
+        return (Number.isNaN(aTime) ? 0 : aTime) - (Number.isNaN(bTime) ? 0 : bTime);
+      });
+
+    const [job] = await db
+      .insert(prosodyJobs)
+      .values({
+        conversationId,
+        status: "pending",
+        totalSegments: studentAudioTurns.length,
+        processedSegments: 0,
+        error: null,
+        enqueuedAt: new Date(),
+        startedAt: null,
+        finishedAt: null,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: prosodyJobs.conversationId,
+        set: {
+          status: "pending",
+          totalSegments: studentAudioTurns.length,
+          processedSegments: 0,
+          error: null,
+          enqueuedAt: new Date(),
+          startedAt: null,
+          finishedAt: null,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    await db
+      .delete(prosodySegmentMetrics)
+      .where(eq(prosodySegmentMetrics.conversationId, conversationId));
+
+    if (studentAudioTurns.length > 0) {
+      await db
+        .insert(prosodySegmentMetrics)
+        .values(
+          studentAudioTurns.map((turn: any, index: number) => ({
+            jobId: job.id,
+            conversationId,
+            segmentIndex: index,
+            sourceAudioUrl: turn.audioUrl,
+            sourceTimestamp: turn.timestamp ? new Date(turn.timestamp) : null,
+            status: "pending",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }))
+        );
+    }
+
+    return job;
+  }
+
+  async getProsodyJobByConversation(conversationId: string): Promise<ProsodyJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(prosodyJobs)
+      .where(eq(prosodyJobs.conversationId, conversationId));
+    return job;
+  }
+
+  async listProsodySegmentsByConversation(conversationId: string): Promise<ProsodySegmentMetric[]> {
+    return await db
+      .select()
+      .from(prosodySegmentMetrics)
+      .where(eq(prosodySegmentMetrics.conversationId, conversationId))
+      .orderBy(asc(prosodySegmentMetrics.segmentIndex));
   }
 }
 

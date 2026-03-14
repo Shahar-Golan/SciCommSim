@@ -70,6 +70,42 @@ export const aiPrompts = pgTable("ai_prompts", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Prosody async jobs per conversation
+export const prosodyJobs = pgTable("prosody_jobs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: uuid("conversation_id").references(() => conversations.id).notNull().unique(),
+  status: varchar("status").notNull().default("pending"), // pending | running | completed | failed
+  totalSegments: integer("total_segments").notNull().default(0),
+  processedSegments: integer("processed_segments").notNull().default(0),
+  error: text("error"),
+  enqueuedAt: timestamp("enqueued_at").defaultNow(),
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Per-student-turn prosody metrics (one row per student speech segment/audio file)
+export const prosodySegmentMetrics = pgTable("prosody_segment_metrics", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: uuid("job_id").references(() => prosodyJobs.id).notNull(),
+  conversationId: uuid("conversation_id").references(() => conversations.id).notNull(),
+  feedbackId: uuid("feedback_id").references(() => feedback.id),
+  segmentIndex: integer("segment_index").notNull(),
+  sourceAudioUrl: text("source_audio_url").notNull(),
+  sourceTimestamp: timestamp("source_timestamp"),
+  status: varchar("status").notNull().default("pending"), // pending | running | completed | failed
+  pitchMeanHz: decimal("pitch_mean_hz", { precision: 10, scale: 2 }),
+  pitchRangeHz: decimal("pitch_range_hz", { precision: 10, scale: 2 }),
+  energyVariance: decimal("energy_variance", { precision: 12, scale: 6 }),
+  wordsPerMinute: decimal("words_per_minute", { precision: 10, scale: 2 }),
+  longPauseCount: integer("long_pause_count"),
+  pauseFreqPerMin: decimal("pause_freq_per_min", { precision: 10, scale: 2 }),
+  rawMetrics: jsonb("raw_metrics").$type<Record<string, unknown>>(),
+  error: text("error"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertStudentSchema = createInsertSchema(students).pick({
   name: true,
@@ -99,6 +135,32 @@ export const insertAiPromptSchema = createInsertSchema(aiPrompts).pick({
   prompt: true,
 });
 
+export const insertProsodyJobSchema = createInsertSchema(prosodyJobs).pick({
+  conversationId: true,
+  status: true,
+  totalSegments: true,
+  processedSegments: true,
+  error: true,
+});
+
+export const insertProsodySegmentMetricSchema = createInsertSchema(prosodySegmentMetrics).pick({
+  jobId: true,
+  conversationId: true,
+  feedbackId: true,
+  segmentIndex: true,
+  sourceAudioUrl: true,
+  sourceTimestamp: true,
+  status: true,
+  pitchMeanHz: true,
+  pitchRangeHz: true,
+  energyVariance: true,
+  wordsPerMinute: true,
+  longPauseCount: true,
+  pauseFreqPerMin: true,
+  rawMetrics: true,
+  error: true,
+});
+
 // Types
 export type Student = typeof students.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -114,6 +176,12 @@ export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 
 export type AiPrompt = typeof aiPrompts.$inferSelect;
 export type InsertAiPrompt = z.infer<typeof insertAiPromptSchema>;
+
+export type ProsodyJob = typeof prosodyJobs.$inferSelect;
+export type InsertProsodyJob = z.infer<typeof insertProsodyJobSchema>;
+
+export type ProsodySegmentMetric = typeof prosodySegmentMetrics.$inferSelect;
+export type InsertProsodySegmentMetric = z.infer<typeof insertProsodySegmentMetricSchema>;
 
 export type Message = {
   role: 'student' | 'ai';

@@ -21,6 +21,8 @@ server/public
 *.sqlite
 *.sqlite3
 .local/
+tmp
+
 
 # Logs
 logs
