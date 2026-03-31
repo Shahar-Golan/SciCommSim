@@ -1,6 +1,4 @@
 import OpenAI from "openai";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { storage } from "./storage";
 import type { Message } from "@shared/schema";
 
@@ -9,86 +7,60 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key"
 });
 
-const FEEDBACK_SYSTEM_PROMPT_FILE_PATH = path.resolve(import.meta.dirname, "../system_prompt.txt");
+export type FeedbackQueueItem = {
+  priority: number;
+  type: "improvement" | "strength";
+  concept: string;
+  target_quote: string;
+  issue_description: string;
+};
 
-async function getFeedbackDialogueSystemPrompt(): Promise<string> {
-  try {
-    const filePrompt = (await readFile(FEEDBACK_SYSTEM_PROMPT_FILE_PATH, "utf-8")).trim();
-    if (filePrompt.length > 0) {
-      return filePrompt;
-    }
-    console.warn("[AI] system_prompt.txt is empty. Falling back to teacher_role prompt.");
-  } catch (error) {
-    console.warn("[AI] Failed reading system_prompt.txt. Falling back to teacher_role prompt.", error);
-  }
+export type NextStrategy = "Ask clarifying question" | "Challenge assumption" | "Move to next item";
 
-  const teacherPrompt = await storage.getAiPrompt("teacher_role");
-  return teacherPrompt?.prompt || `You are a supportive science communication coach providing feedback through dialogue.`;
+export type EvaluateNextMoveResult = {
+  is_resolved: boolean;
+  user_pushback_detected: boolean;
+  next_strategy: NextStrategy;
+  strategy_notes: string;
+};
+
+function buildLegacyFeedbackStrings(queue: FeedbackQueueItem[]): { strengths: string; improvements: string } {
+  const strengthsItems = queue.filter(item => item.type === "strength").slice(0, 2);
+  const improvementItems = queue.filter(item => item.type !== "strength").slice(0, 2);
+
+  const formatLine = (item: FeedbackQueueItem) => {
+    const quote = item.target_quote ? ` Quote: "${item.target_quote}".` : "";
+    return `- ${item.concept}: ${item.issue_description}.${quote}`;
+  };
+
+  const strengths = strengthsItems.length > 0
+    ? strengthsItems.map(formatLine).join("\n")
+    : "No clear strengths were detected in this conversation sample.";
+
+  const improvements = improvementItems.length > 0
+    ? improvementItems.map(formatLine).join("\n")
+    : "No major improvement areas were detected in this conversation sample.";
+
+  return { strengths, improvements };
 }
 
-function getCurrentFeedbackPhase(
-  feedbackMessages: Array<{ role: 'student' | 'teacher'; content: string }>
-): 1 | 2 | 3 | 4 {
-  const teacherIndices = feedbackMessages
-    .map((msg, index) => ({ role: msg.role, index }))
-    .filter(item => item.role === "teacher")
-    .map(item => item.index);
-
-  // No teacher output yet: start with Socratic opening.
-  if (teacherIndices.length === 0) {
-    return 1;
-  }
-
-  const deliveredPhases = Math.min(teacherIndices.length, 4);
-  const lastTeacherIndex = teacherIndices[teacherIndices.length - 1];
-  const hasStudentAfterLastTeacher = feedbackMessages
-    .slice(lastTeacherIndex + 1)
-    .some(msg => msg.role === "student");
-
-  if (!hasStudentAfterLastTeacher) {
-    return deliveredPhases as 1 | 2 | 3 | 4;
-  }
-
-  return Math.min(deliveredPhases + 1, 4) as 1 | 2 | 3 | 4;
+async function getFeedbackDialogueSystemPrompt(): Promise<string> {
+  const teacherPrompt = await storage.getAiPrompt("teacher_role");
+  return teacherPrompt?.prompt || `You are a supportive science communication coach providing feedback through dialogue.`;
 }
 
 export async function generateTeacherResponse(
   feedbackMessages: Array<{ role: 'student' | 'teacher'; content: string }>,
   feedbackContext: { 
-    strengths: string; 
-    improvements: string; 
     originalConversation: Array<{ role: string; content: string }>
+  },
+  executorContext: {
+    activeItem: FeedbackQueueItem | null;
+    plannerDecision: EvaluateNextMoveResult | null;
   }
 ): Promise<string> {
   try {
     const systemPrompt = await getFeedbackDialogueSystemPrompt();
-    const currentPhase = getCurrentFeedbackPhase(feedbackMessages);
-
-    let phaseInstruction = "";
-    if (currentPhase === 1) {
-      phaseInstruction = `CURRENT PHASE: 1 (Socratic Opening)
-- Output ONLY Phase 1.
-- Ask exactly one Socratic self-reflection opening question.
-- Do not provide praise, critique, suggestions, or closing yet.`;
-    } else if (currentPhase === 2) {
-      phaseInstruction = `CURRENT PHASE: 2 (Positive Reinforcement)
-- Output ONLY Phase 2.
-- Provide strengths-focused reinforcement only, grounded in the transcript.
-- Move forward by your own reasoning after the student's response; do not ask permission to proceed.
-- Do not provide critique/suggestions and do not close the session yet.`;
-    } else if (currentPhase === 3) {
-      phaseInstruction = `CURRENT PHASE: 3 (Core Rubric)
-- Output ONLY Phase 3.
-- Provide actionable critique with at most TWO improvement points.
-- Keep advice specific to what happened in the transcript.
-- Move forward by your own reasoning after the student's response; do not ask permission to proceed.
-- Do not include warm closing statements yet.`;
-    } else {
-      phaseInstruction = `CURRENT PHASE: 4 (Closing & Transition)
-- Output ONLY Phase 4.
-- Give a brief warm closing and transition to next practice.
-- Do not introduce new critique points in this phase.`;
-    }
 
     // Format the original conversation for context - clean and simple
     const conversationText = feedbackContext.originalConversation
@@ -98,20 +70,48 @@ export async function generateTeacherResponse(
       })
       .join('\n');
 
-    // Add feedback context to the system prompt
+    const activeItem = executorContext.activeItem;
+    const plannerDecision = executorContext.plannerDecision;
+
+    const activeItemSection = activeItem
+      ? `ACTIVE FEEDBACK ITEM:
+Priority: ${activeItem.priority}
+Type: ${activeItem.type}
+Concept: ${activeItem.concept}
+Target Quote: "${activeItem.target_quote}"
+Issue: ${activeItem.issue_description}`
+      : `ACTIVE FEEDBACK ITEM:
+No active queue item remains.`;
+
+    const plannerSection = plannerDecision
+      ? `PLANNER DECISION:
+is_resolved: ${plannerDecision.is_resolved}
+user_pushback_detected: ${plannerDecision.user_pushback_detected}
+next_strategy: ${plannerDecision.next_strategy}
+strategy_notes: ${plannerDecision.strategy_notes}`
+      : `PLANNER DECISION:
+No planner decision provided yet. Start with a focused question on the active item.`;
+
+    // Add executor context to the system prompt
     const enrichedSystemPrompt = `${systemPrompt}
 
-  PHASE CONTROL (HIGHEST PRIORITY):
-  ${phaseInstruction}
+EXECUTOR RULES (HIGHEST PRIORITY):
+- You are a Socratic teacher.
+- You MUST ask exactly ONE question per response.
+- You MUST integrate the provided target quote into your message when an active item exists.
+- Do NOT list multiple issues in one reply.
+- Follow planner strategy and notes.
+- If user pushback is detected: acknowledge perspective, evaluate logic, and redirect to evidence when needed.
+- If no active item remains: ask one reflective wrap-up question about transfer to next practice.
+
+${activeItemSection}
+
+${plannerSection}
 
 ORIGINAL CONVERSATION TRANSCRIPT:
 ${conversationText}
 
-FEEDBACK ANALYSIS FOR THIS CONVERSATION:
-Strengths: ${feedbackContext.strengths}
-Areas for Improvement: ${feedbackContext.improvements}
-
-You have the full conversation above. Reference specific moments when discussing feedback.`;
+You have the full conversation above. Keep the response concise and evidence-based.`;
 
     const openaiMessages = [
       { role: "system" as const, content: enrichedSystemPrompt },
@@ -136,6 +136,7 @@ You have the full conversation above. Reference specific moments when discussing
 }
 
 export async function generateFeedback(messages: Message[]): Promise<{
+  feedback_queue: FeedbackQueueItem[];
   strengths: string;
   improvements: string;
 }> {
@@ -145,24 +146,48 @@ export async function generateFeedback(messages: Message[]): Promise<{
     
     // If no student messages or conversation is too short, return empty conversation message
     if (studentMessages.length === 0) {
+      const feedbackQueue: FeedbackQueueItem[] = [
+        {
+          priority: 1,
+          type: "improvement",
+          concept: "Insufficient student content",
+          target_quote: "",
+          issue_description: "No student turns were found, so the rubric analyzer cannot assess communication behavior yet",
+        },
+      ];
+      const legacy = buildLegacyFeedbackStrings(feedbackQueue);
       return {
-        strengths: "No conversation to analyze.",
-        improvements: "Please engage with the AI in a meaningful conversation before requesting feedback. Try again with your next conversation."
+        feedback_queue: feedbackQueue,
+        strengths: legacy.strengths,
+        improvements: legacy.improvements,
       };
     }
     
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
-    const systemPrompt = feedbackPrompt?.prompt || `You are an expert in science communication evaluation. Analyze this conversation between a STEM student and a layperson.
+    const systemPrompt = feedbackPrompt?.prompt || `You are an offline science-communication rubric analyzer.
 
-Provide feedback in two distinct parts:
-1. STRENGTHS: What the student did well in their communication
-2. POINTS FOR IMPROVEMENT: Specific areas where the student can enhance their science communication skills
+Task:
+- Analyze the transcript and output prioritized actionable items only.
+- Ground each item in one exact quote from the student transcript.
+- Prioritize by impact (1 = highest).
+- Use type = "improvement" for weaknesses and type = "strength" for effective communication behavior.
 
-Do NOT provide numerical scores or percentages. Focus on qualitative feedback that helps the student understand their communication effectiveness.
-
-Please provide your analysis as detailed, constructive feedback that will help the student improve their ability to communicate complex scientific concepts to general audiences. Be specific about communication techniques, clarity, engagement strategies, and how well they addressed concerns.
-
-Respond in JSON format with keys: strengths (string), improvements (string).`;
+Output rules:
+- Return strict JSON only.
+- Use this exact schema:
+{
+  "feedback_queue": [
+    {
+      "priority": 1,
+      "type": "improvement",
+      "concept": "Jargon Usage",
+      "target_quote": "Exact quote from student transcript",
+      "issue_description": "Used complex term without defining it."
+    }
+  ]
+}
+- Do not include markdown, prose outside JSON, or additional keys.
+- Include 3 to 6 items when enough evidence exists.`;
 
     const conversationText = messages.map(msg => 
       `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`
@@ -179,17 +204,121 @@ Respond in JSON format with keys: strengths (string), improvements (string).`;
     });
 
     const result = JSON.parse(response.choices[0].message.content || "{}");
-    
+    const feedbackQueue: FeedbackQueueItem[] = Array.isArray(result.feedback_queue)
+      ? (result.feedback_queue as FeedbackQueueItem[])
+      : [];
+
+    const fallbackQueue: FeedbackQueueItem[] = feedbackQueue.length > 0
+      ? feedbackQueue
+      : [
+          {
+            priority: 1,
+            type: "improvement",
+            concept: "Clarity",
+            target_quote: studentMessages[0]?.content || "",
+            issue_description: "Add clearer plain-language framing and examples for a general audience",
+          },
+        ];
+
+    const legacy = buildLegacyFeedbackStrings(fallbackQueue);
+
     return {
-      strengths: result.strengths || "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
-      improvements: result.improvements || "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
+      feedback_queue: fallbackQueue,
+      strengths: legacy.strengths,
+      improvements: legacy.improvements,
     };
   } catch (error) {
     console.error("Feedback generation error:", error);
-    // Return default feedback instead of throwing
+    const feedbackQueue: FeedbackQueueItem[] = [
+      {
+        priority: 1,
+        type: "improvement",
+        concept: "Fallback analysis",
+        target_quote: "",
+        issue_description: "Analysis model failed. Re-run feedback generation to produce actionable transcript-based items",
+      },
+    ];
+    const legacy = buildLegacyFeedbackStrings(feedbackQueue);
+
     return {
-      strengths: "You demonstrated good knowledge of your research topic and showed willingness to engage with questions.",
-      improvements: "Focus on using simpler language and providing more concrete examples to help your audience understand complex concepts.",
+      feedback_queue: feedbackQueue,
+      strengths: legacy.strengths,
+      improvements: legacy.improvements,
+    };
+  }
+}
+
+export async function evaluateNextMove(
+  feedbackMessages: Array<{ role: "student" | "teacher"; content: string }>,
+  activeItem: FeedbackQueueItem
+): Promise<EvaluateNextMoveResult> {
+  try {
+    const latestStudentMessage = [...feedbackMessages]
+      .reverse()
+      .find(msg => msg.role === "student")?.content || "";
+
+    const transcriptTail = feedbackMessages
+      .slice(-6)
+      .map(msg => `${msg.role === "student" ? "Student" : "Teacher"}: ${msg.content}`)
+      .join("\n");
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a diagnostic processor.
+
+Task:
+- Evaluate the student's latest response against the active rubric item.
+- Decide whether the active issue is resolved.
+- Detect whether the user is pushing back or disagreeing.
+- Output strict JSON only.
+
+Required output schema:
+{
+  "is_resolved": boolean,
+  "user_pushback_detected": boolean,
+  "next_strategy": "Ask clarifying question" | "Challenge assumption" | "Move to next item",
+  "strategy_notes": "Clinical instructions for the Executor"
+}
+
+Rules:
+- If the student adequately addressed the issue, set is_resolved=true.
+- If the student disputes feedback without evidence, set user_pushback_detected=true.
+- Keep strategy_notes short, concrete, and actionable.`,
+        },
+        {
+          role: "user",
+          content: `ACTIVE RUBRIC ITEM:\n${JSON.stringify(activeItem, null, 2)}\n\nLATEST STUDENT MESSAGE:\n${latestStudentMessage}\n\nRECENT FEEDBACK DIALOGUE:\n${transcriptTail}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+    });
+
+    const parsed = JSON.parse(response.choices[0].message.content || "{}");
+    const strategy = parsed.next_strategy;
+    const validStrategy: NextStrategy =
+      strategy === "Move to next item" || strategy === "Challenge assumption"
+        ? strategy
+        : "Ask clarifying question";
+
+    return {
+      is_resolved: Boolean(parsed.is_resolved),
+      user_pushback_detected: Boolean(parsed.user_pushback_detected),
+      next_strategy: validStrategy,
+      strategy_notes: typeof parsed.strategy_notes === "string"
+        ? parsed.strategy_notes
+        : "Ask one focused follow-up tied to the active queue item.",
+    };
+  } catch (error) {
+    console.error("evaluateNextMove error:", error);
+    return {
+      is_resolved: false,
+      user_pushback_detected: false,
+      next_strategy: "Ask clarifying question",
+      strategy_notes: "Model evaluation failed; continue probing the same item with one specific follow-up question.",
     };
   }
 }
@@ -199,81 +328,50 @@ export async function initializeFeedbackPrompts() {
   try {
     await storage.upsertAiPrompt({
       name: "teacher_role",
-      prompt: `You are a science communication coach providing feedback to a scientist who just finished explaining their research to a layperson. Your goal is to help them improve their communication skills through supportive, specific, and constructive feedback.
+      prompt: `You are a Socratic science communication teacher.
 
-Context: You have access to:
-1. The full transcript of their conversation with a layperson
-2. Analyzed feedback highlighting their strengths and areas for improvement
+  Core behavior:
+  - Ask exactly ONE question per response.
+  - Focus on only ONE active feedback issue at a time.
+  - Integrate the provided target quote directly in your message.
+  - Keep your tone supportive but rigorous.
 
-Your Role in the Feedback Dialogue:
-- YOU are the expert presenting feedback
-- THE STUDENT is listening and can ask questions or share reflections
-- Start by presenting concrete observations from their conversation
-- Reference specific moments and quotes from the transcript
-- Be encouraging but honest
-- Provide actionable suggestions
+  Pushback rule:
+  - If the learner pushes back, do not auto-apologize.
+  - Acknowledge their perspective briefly.
+  - Evaluate whether their logic is supported by transcript evidence.
+  - If not supported, redirect them to the quote and ask one probing question.
 
-Guidelines:
-1. **On your FIRST message**: Present a comprehensive overview of their performance:
-   - Start with what they did well (with specific examples from the conversation)
-   - Then discuss areas for improvement (with specific examples)
-   - Cite actual quotes from their conversation
-   - Keep it conversational but substantive (3-4 sentences)
-
-2. **On subsequent messages**: 
-   - Respond to the student's questions or reflections
-   - Elaborate on specific points when asked
-   - Provide additional examples or clarifications
-   - Encourage them to think about how to apply the feedback
-   - Keep responses focused (2-3 sentences)
-
-3. **Always**:
-   - Be specific - cite actual moments from their conversation
-   - Be constructive - focus on growth, not criticism
-   - Be conversational - use natural language, not academic jargon
-   - Be balanced - acknowledge both strengths and areas for growth
-
-Example of a good opening message:
-"You did a really nice job when you [specific example with quote]. That helped make the concept accessible. However, I noticed that when they asked [quote their question], your response [describe issue]. For next time, consider [specific suggestion]. Would you like to discuss any of these points?"
-
-Remember: You're presenting feedback TO them, not asking them to self-evaluate. They can ask questions and respond to your feedback.`
+  Do not provide a long comprehensive overview.
+  Do not list multiple issues in one response.`
     });
 
     await storage.upsertAiPrompt({
       name: "feedback_analysis",
-      prompt: `At the end of the conversation, you will provide short, constructive feedback to the scientist based on the Prodigy framework. Your goal is to help them improve their science communication skills in future conversations with lay audiences.
+      prompt: `You are an offline science communication analyzer using the Prodigy dimensions only as internal rubric guidance.
 
-Guidelines:
-1. Your feedback should be written in the second person (e.g., "You did a great job…", not "The scientist did a great job…").
-2. Your feedback should be brief:
-   – 1 to 2 strengths (what they did well)
-   – 1 to 2 areas for improvement (specific, actionable suggestions)
-3. Do not try to cover all 15 features of the Prodigy framework. Focus only on the main things you actually noticed in the conversation.
-4. For each strength or suggestion, provide a brief quote or example from the transcript of the conversation to support your point. This ensures relevance and helpfulness.
-5. Avoid vague praise or generic criticism. Make the feedback specific, relevant, and grounded in what actually occurred.
-6. Although your feedback is informed by the Prodigy framework, you should not mention the framework or its feature codes explicitly. Simply describe the strengths and areas for improvement in everyday language.
+Analyze the transcript and produce a prioritized queue of actionable items. Each item must cite one exact student quote.
 
-Reminder: Your job is to help the scientist improve. Be concise, practical, and focused on what actually happened in the conversation.
-
-PRODIGY FRAMEWORK REFERENCE:
-The Prodigy framework includes 15 features across 4 dimensions:
-A) Content: Reasoning, Explaining, Clarity, Tailoring, Credibility
-B) Interpersonal Rapport: Stressing similarities, Empathy/Benevolence, Respect, Sharing personal details
-C) Perspective-taking: Paraphrasing, Invitations to share, Building on ideas
-D) Trustworthiness: Intellectual humility, Transparency, Acknowledging complexity
-
-Example feedback format:
-"Here's some feedback based on your communication:
-
-Strengths:
-• You explained complex concepts like fluid behavior in a simple, understandable way.
-• You provided relatable examples, like the meniscus shape of a lens, which helped connect the ideas.
-
-Areas for Improvement:
-• A touch more acknowledgment of how challenging the subject might seem could build rapport further.
-• You could enhance engagement by asking questions about what the listener might already know."
-
-Respond in JSON format with keys: strengths (string), improvements (string).`
+Rules:
+1. Output STRICT JSON only.
+2. Use this exact schema and key names:
+{
+  "feedback_queue": [
+    {
+      "priority": 1,
+      "type": "improvement",
+      "concept": "Jargon Usage",
+      "target_quote": "Exact quote from student transcript",
+      "issue_description": "Used complex term without defining it."
+    }
+  ]
+}
+3. priority must be integers starting at 1, sorted by impact.
+4. type must be either "improvement" or "strength".
+5. Keep concept concise (2-5 words).
+6. Keep issue_description concrete and observable (no generic praise).
+7. Produce 3-6 items when transcript evidence is sufficient.
+8. Do not include markdown or extra text outside the JSON object.`
     });
   } catch (error) {
     console.error("Failed to initialize feedback prompts:", error);

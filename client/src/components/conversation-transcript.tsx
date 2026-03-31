@@ -1,12 +1,54 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { User, Bot } from "lucide-react";
 import type { Message } from "@shared/schema";
 
 interface ConversationTranscriptProps {
   messages: Message[];
+  highlightQuotedText?: boolean;
 }
 
-export default function ConversationTranscript({ messages }: ConversationTranscriptProps) {
+function renderMessageContent(content: string, highlightQuotedText: boolean) {
+  if (!highlightQuotedText) {
+    return <p className="text-sm text-slate-800">{content}</p>;
+  }
+
+  const quoteRegex = /"([^"]+)"/g;
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = quoteRegex.exec(content)) !== null) {
+    const matchStart = match.index;
+    const matchEnd = quoteRegex.lastIndex;
+
+    if (matchStart > lastIndex) {
+      nodes.push(content.slice(lastIndex, matchStart));
+    }
+
+    nodes.push(
+      <mark
+        key={`quote-${matchStart}`}
+        className="rounded bg-amber-100 px-1 py-0.5 text-slate-900 ring-1 ring-amber-300"
+      >
+        {match[0]}
+      </mark>
+    );
+
+    lastIndex = matchEnd;
+  }
+
+  if (lastIndex < content.length) {
+    nodes.push(content.slice(lastIndex));
+  }
+
+  if (nodes.length === 0) {
+    return <p className="text-sm text-slate-800">{content}</p>;
+  }
+
+  return <p className="text-sm text-slate-800 leading-relaxed">{nodes}</p>;
+}
+
+export default function ConversationTranscript({ messages, highlightQuotedText = false }: ConversationTranscriptProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of transcript container only
@@ -57,7 +99,7 @@ export default function ConversationTranscript({ messages }: ConversationTranscr
                         ? 'bg-blue-50' 
                         : 'bg-green-50'
                     }`}>
-                      <p className="text-sm text-slate-800">{message.content}</p>
+                      {renderMessageContent(message.content, highlightQuotedText && message.role !== 'student')}
                     </div>
                     <span className="text-xs text-slate-500 mt-1" data-testid={`message-time-${index}`}>
                       {message.role === 'student' ? 'You' : 'AI Assistant'} • {

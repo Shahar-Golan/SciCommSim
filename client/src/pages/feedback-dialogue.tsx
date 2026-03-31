@@ -509,7 +509,8 @@ export default function FeedbackDialogue({
                 messages={messages.map(m => ({
                   ...m,
                   role: m.role === 'teacher' ? 'ai' : 'student'
-                }))} 
+                }))}
+                highlightQuotedText={true}
               />
             </div>
 

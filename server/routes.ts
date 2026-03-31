@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, initializeDefaultPrompts } from "./openai";
 import { generateLaypersonResponse } from "./openai-chat";
-import { generateFeedback, generateTeacherResponse } from "./openai-feedback";
+import { generateFeedback, generateTeacherResponse, evaluateNextMove } from "./openai-feedback";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
@@ -13,6 +13,30 @@ import multer from "multer";
 import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+type FeedbackQueueItem = {
+  priority: number;
+  type: "improvement" | "strength";
+  concept: string;
+  target_quote: string;
+  issue_description: string;
+};
+
+function parseFeedbackQueue(summary: string | null): FeedbackQueueItem[] {
+  if (!summary) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(summary);
+    if (!Array.isArray(parsed.feedback_queue)) {
+      return [];
+    }
+    return parsed.feedback_queue as FeedbackQueueItem[];
+  } catch {
+    return [];
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default AI prompts
@@ -334,9 +358,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
       });
+
+      await storage.updateFeedback(feedback.id, {
+        summary: JSON.stringify({
+          feedback_queue: feedbackData.feedback_queue,
+          queue_cursor: 0,
+        }),
+      });
+
+      const savedFeedback = await storage.getFeedbackByConversation(conversationId);
       
       console.log("Saved feedback to database:", feedback);
-      res.json(feedback);
+      res.json(savedFeedback || feedback);
     } catch (error) {
       console.error("Feedback generation error:", error);
       res.status(500).json({ message: "Failed to generate feedback" });
@@ -430,13 +463,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: msg.content
       }));
 
+      const queueAtStart = parseFeedbackQueue(feedback.summary || null);
+      const activeItemAtStart = queueAtStart[0] || null;
+
       // Generate initial teacher message with feedback presentation
       const initialMessage = await generateTeacherResponse(
         [],
         {
-          strengths: feedback.strengths || "",
-          improvements: feedback.improvements || "",
           originalConversation: cleanConversation,
+        },
+        {
+          activeItem: activeItemAtStart,
+          plannerDecision: {
+            is_resolved: false,
+            user_pushback_detected: false,
+            next_strategy: "Ask clarifying question",
+            strategy_notes: "Open with one focused Socratic question tied to the active queue item.",
+          },
         }
       );
       
@@ -526,13 +569,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message
       ];
 
+      // Step 2 planner: evaluate latest student turn against active queue item.
+      const currentQueue = parseFeedbackQueue(feedback.summary || null);
+      const activeItem = currentQueue[0];
+      let plannerDecision = null;
+      let executorItem = activeItem || null;
+
+      if (activeItem) {
+        plannerDecision = await evaluateNextMove(
+          updatedTranscript.map(m => ({ role: m.role, content: m.content })),
+          activeItem
+        );
+
+        if (plannerDecision.is_resolved) {
+          const nextQueue = currentQueue.slice(1);
+          executorItem = nextQueue[0] || null;
+          await storage.updateFeedback(feedback.id, {
+            summary: JSON.stringify({
+              feedback_queue: nextQueue,
+              queue_cursor: 0,
+            }),
+          });
+        }
+      }
+
       // Generate teacher response based on context
       const teacherResponse = await generateTeacherResponse(
         updatedTranscript.map(m => ({ role: m.role, content: m.content })),
         {
-          strengths: feedback.strengths || "",
-          improvements: feedback.improvements || "",
           originalConversation: cleanConversation,
+        },
+        {
+          activeItem: executorItem,
+          plannerDecision,
         }
       );
 
