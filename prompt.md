@@ -99,3 +99,6 @@ The Logic: Force the system to always put a strength at Priority 1, an improveme
 Users need to leave the session knowing exactly what to do next time.
 
 The Fix: Once the queue is empty, trigger a final state where Agent 1 summarizes the session. It should explicitly state: "Here is your main strength to keep doing: X. Here is the main habit to watch out for: Y."
+
+### Step 6: Add time restrictions
+since the feedback time is limited to 5 minutes, we cannot dive deep into every sentence the user said. in the queue we have to prioritize the most urgent things, and if there is a remaning time we will modify the rest.

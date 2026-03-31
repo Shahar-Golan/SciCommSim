@@ -261,7 +261,7 @@ Output rules:
 
     const fallbackQueue: FeedbackQueueItem[] = feedbackQueue.length > 0
       ? feedbackQueue
-      : [
+      : [ 
           {
             priority: 1,
             type: "improvement",
@@ -441,7 +441,7 @@ Rules:
 4. type must be either "improvement" or "strength".
 5. Keep concept concise (2-5 words).
 6. Keep issue_description concrete and observable (no generic praise).
-7. Produce 3-6 items when transcript evidence is sufficient.
+7. Produce 2-4 items when transcript evidence is sufficient.
 8. Do not include markdown or extra text outside the JSON object.`
     });
   } catch (error) {
