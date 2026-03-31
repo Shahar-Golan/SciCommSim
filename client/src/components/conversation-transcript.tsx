@@ -28,7 +28,7 @@ function renderMessageContent(content: string, highlightQuotedText: boolean) {
     nodes.push(
       <mark
         key={`quote-${matchStart}`}
-        className="rounded bg-amber-100 px-1 py-0.5 text-slate-900 ring-1 ring-amber-300"
+        className="rounded bg-purple-100 px-1 py-0.5 text-purple-900 ring-1 ring-purple-300"
       >
         {match[0]}
       </mark>

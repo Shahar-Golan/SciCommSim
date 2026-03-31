@@ -15,7 +15,7 @@ export type FeedbackQueueItem = {
   issue_description: string;
 };
 
-export type NextStrategy = "Ask clarifying question" | "Challenge assumption" | "Move to next item";
+export type NextStrategy = "Ask clarifying question" | "Challenge assumption" | "Move to next item" | "Direct Instruction";
 
 export type EvaluateNextMoveResult = {
   is_resolved: boolean;
@@ -42,6 +42,54 @@ function buildLegacyFeedbackStrings(queue: FeedbackQueueItem[]): { strengths: st
     : "No major improvement areas were detected in this conversation sample.";
 
   return { strengths, improvements };
+}
+
+function orderFeedbackQueueSandwich(queue: FeedbackQueueItem[]): FeedbackQueueItem[] {
+  const strengths = queue.filter(item => item.type === "strength");
+  const improvements = queue.filter(item => item.type !== "strength");
+  const ordered: FeedbackQueueItem[] = [];
+
+  // Always begin with a strength when available, then alternate with improvements.
+  let s = 0;
+  let i = 0;
+  let nextType: "strength" | "improvement" = strengths.length > 0 ? "strength" : "improvement";
+
+  while (s < strengths.length || i < improvements.length) {
+    if (nextType === "strength" && s < strengths.length) {
+      ordered.push(strengths[s++]);
+      nextType = "improvement";
+      continue;
+    }
+
+    if (nextType === "improvement" && i < improvements.length) {
+      ordered.push(improvements[i++]);
+      nextType = "strength";
+      continue;
+    }
+
+    if (s < strengths.length) {
+      ordered.push(strengths[s++]);
+    } else if (i < improvements.length) {
+      ordered.push(improvements[i++]);
+    }
+  }
+
+  return ordered.map((item, index) => ({ ...item, priority: index + 1 }));
+}
+
+export function buildTakeawaySummary(queue: FeedbackQueueItem[]): string {
+  const mainStrength = queue.find(item => item.type === "strength");
+  const mainHabit = queue.find(item => item.type !== "strength");
+
+  const strengthLine = mainStrength
+    ? `Here is your main strength to keep doing: ${mainStrength.concept} - ${mainStrength.issue_description}.`
+    : "Here is your main strength to keep doing: your willingness to engage and clarify when prompted.";
+
+  const habitLine = mainHabit
+    ? `Here is the main habit to watch out for: ${mainHabit.concept} - ${mainHabit.issue_description}.`
+    : "Here is the main habit to watch out for: keep translating technical terms into plain language as early as possible.";
+
+  return `${strengthLine}\n${habitLine}`;
 }
 
 async function getFeedbackDialogueSystemPrompt(): Promise<string> {
@@ -97,12 +145,15 @@ No planner decision provided yet. Start with a focused question on the active it
 
 EXECUTOR RULES (HIGHEST PRIORITY):
 - You are a Socratic teacher.
-- You MUST ask exactly ONE question per response.
+  - You MUST ask exactly ONE question per response, unless next_strategy is "Direct Instruction".
 - You MUST integrate the provided target quote into your message when an active item exists.
 - Do NOT list multiple issues in one reply.
 - Follow planner strategy and notes.
 - If user pushback is detected: acknowledge perspective, evaluate logic, and redirect to evidence when needed.
 - If no active item remains: ask one reflective wrap-up question about transfer to next practice.
+  - Do NOT ask the student to explain the science itself.
+  - Your prompts must focus on communication mechanics from the audience perspective (clarity, wording, analogy, framing).
+  - If next_strategy is "Direct Instruction": do not ask a question. Give one concise corrective instruction and one concrete rephrase example.
 
 ${activeItemSection}
 
@@ -220,10 +271,11 @@ Output rules:
           },
         ];
 
-    const legacy = buildLegacyFeedbackStrings(fallbackQueue);
+    const orderedQueue = orderFeedbackQueueSandwich(fallbackQueue);
+    const legacy = buildLegacyFeedbackStrings(orderedQueue);
 
     return {
-      feedback_queue: fallbackQueue,
+      feedback_queue: orderedQueue,
       strengths: legacy.strengths,
       improvements: legacy.improvements,
     };
@@ -250,7 +302,8 @@ Output rules:
 
 export async function evaluateNextMove(
   feedbackMessages: Array<{ role: "student" | "teacher"; content: string }>,
-  activeItem: FeedbackQueueItem
+  activeItem: FeedbackQueueItem,
+  socraticAttempts: number
 ): Promise<EvaluateNextMoveResult> {
   try {
     const latestStudentMessage = [...feedbackMessages]
@@ -279,18 +332,22 @@ Required output schema:
 {
   "is_resolved": boolean,
   "user_pushback_detected": boolean,
-  "next_strategy": "Ask clarifying question" | "Challenge assumption" | "Move to next item",
+  "next_strategy": "Ask clarifying question" | "Challenge assumption" | "Move to next item" | "Direct Instruction",
   "strategy_notes": "Clinical instructions for the Executor"
 }
 
 Rules:
 - If the student adequately addressed the issue, set is_resolved=true.
 - If the student disputes feedback without evidence, set user_pushback_detected=true.
-- Keep strategy_notes short, concrete, and actionable.`,
+- Keep strategy_notes short, concrete, and actionable.
+- Two-Strike limit:
+  - Attempt 1: ask a guiding question.
+  - Attempt 2: give a heavier hint.
+  - Strike 3: force next_strategy to "Direct Instruction" (stop Socratic loop).`,
         },
         {
           role: "user",
-          content: `ACTIVE RUBRIC ITEM:\n${JSON.stringify(activeItem, null, 2)}\n\nLATEST STUDENT MESSAGE:\n${latestStudentMessage}\n\nRECENT FEEDBACK DIALOGUE:\n${transcriptTail}`,
+          content: `SOCRATIC_ATTEMPTS_SO_FAR: ${socraticAttempts}\n\nACTIVE RUBRIC ITEM:\n${JSON.stringify(activeItem, null, 2)}\n\nLATEST STUDENT MESSAGE:\n${latestStudentMessage}\n\nRECENT FEEDBACK DIALOGUE:\n${transcriptTail}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -299,10 +356,15 @@ Rules:
 
     const parsed = JSON.parse(response.choices[0].message.content || "{}");
     const strategy = parsed.next_strategy;
-    const validStrategy: NextStrategy =
-      strategy === "Move to next item" || strategy === "Challenge assumption"
+    let validStrategy: NextStrategy =
+      strategy === "Move to next item" || strategy === "Challenge assumption" || strategy === "Direct Instruction"
         ? strategy
         : "Ask clarifying question";
+
+    // Strike 3 hard stop: after two unsuccessful Socratic attempts, switch to direct instruction.
+    if (!Boolean(parsed.is_resolved) && socraticAttempts >= 2) {
+      validStrategy = "Direct Instruction";
+    }
 
     return {
       is_resolved: Boolean(parsed.is_resolved),
@@ -310,15 +372,19 @@ Rules:
       next_strategy: validStrategy,
       strategy_notes: typeof parsed.strategy_notes === "string"
         ? parsed.strategy_notes
-        : "Ask one focused follow-up tied to the active queue item.",
+        : validStrategy === "Direct Instruction"
+          ? "Give direct corrective feedback with one concrete rephrase example."
+          : "Ask one focused follow-up tied to the active queue item.",
     };
   } catch (error) {
     console.error("evaluateNextMove error:", error);
     return {
       is_resolved: false,
       user_pushback_detected: false,
-      next_strategy: "Ask clarifying question",
-      strategy_notes: "Model evaluation failed; continue probing the same item with one specific follow-up question.",
+      next_strategy: socraticAttempts >= 2 ? "Direct Instruction" : "Ask clarifying question",
+      strategy_notes: socraticAttempts >= 2
+        ? "Model evaluation failed and Socratic limit reached; provide direct corrective instruction with one rephrase example."
+        : "Model evaluation failed; continue probing the same item with one specific follow-up question.",
     };
   }
 }
@@ -331,16 +397,21 @@ export async function initializeFeedbackPrompts() {
       prompt: `You are a Socratic science communication teacher.
 
   Core behavior:
-  - Ask exactly ONE question per response.
+    - Ask exactly ONE question per response, unless strategy explicitly says Direct Instruction.
   - Focus on only ONE active feedback issue at a time.
   - Integrate the provided target quote directly in your message.
   - Keep your tone supportive but rigorous.
+    - Do NOT ask the student to explain the science content itself.
+    - Focus on HOW they communicated to a layperson (word choice, simplification, analogy, pacing, audience framing).
 
   Pushback rule:
   - If the learner pushes back, do not auto-apologize.
   - Acknowledge their perspective briefly.
   - Evaluate whether their logic is supported by transcript evidence.
   - If not supported, redirect them to the quote and ask one probing question.
+
+    Two-Strike rule:
+    - If strategy indicates Direct Instruction, stop asking questions and provide one concise corrective instruction plus one better phrasing example.
 
   Do not provide a long comprehensive overview.
   Do not list multiple issues in one response.`

@@ -6,6 +6,11 @@ export interface RecordingResult {
   audioUrl: string | null;
 }
 
+export interface RecordingOptions {
+  conversationId?: string;
+  shouldUploadAudio?: boolean;
+}
+
 export function useVoiceRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -36,7 +41,7 @@ export function useVoiceRecorder() {
     }
   }, []);
 
-  const stopRecording = useCallback((conversationId?: string): Promise<RecordingResult> => {
+  const stopRecording = useCallback((options: RecordingOptions = {}): Promise<RecordingResult> => {
     return new Promise((resolve, reject) => {
       const mediaRecorder = mediaRecorderRef.current;
       if (!mediaRecorder || mediaRecorder.state === 'inactive') {
@@ -51,29 +56,33 @@ export function useVoiceRecorder() {
         try {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const timestamp = new Date().toISOString();
+          const { conversationId, shouldUploadAudio = true } = options;
           
-          // Parallelize transcription and upload (independent operations)
+          // Always transcribe. Audio upload is optional per screen/phase.
           const transcribeFormData = new FormData();
           transcribeFormData.append('audio', audioBlob, 'recording.webm');
-          
-          const uploadFormData = new FormData();
-          uploadFormData.append('audio', audioBlob, 'recording.webm');
-          uploadFormData.append('conversationId', conversationId || 'unknown');
-          uploadFormData.append('role', 'student');
-          uploadFormData.append('timestamp', timestamp);
-          
+
+          const uploadPromise = shouldUploadAudio
+            ? (() => {
+                const uploadFormData = new FormData();
+                uploadFormData.append('audio', audioBlob, 'recording.webm');
+                uploadFormData.append('conversationId', conversationId || 'unknown');
+                uploadFormData.append('role', 'student');
+                uploadFormData.append('timestamp', timestamp);
+                return apiRequest('POST', '/api/audio/upload', uploadFormData)
+                  .then(res => res.json())
+                  .catch(uploadError => {
+                    console.error('Failed to upload audio:', uploadError);
+                    return { audioUrl: null }; // Continue even if upload fails
+                  });
+              })()
+            : Promise.resolve({ audioUrl: null });
+
           const [transcribeResult, uploadResult] = await Promise.all([
-            // Transcribe audio
             apiRequest('POST', '/api/transcribe', transcribeFormData)
               .then(res => res.json()),
-            
-            // Upload audio to storage
-            apiRequest('POST', '/api/audio/upload', uploadFormData)
-              .then(res => res.json())
-              .catch(uploadError => {
-                console.error('Failed to upload audio:', uploadError);
-                return { audioUrl: null }; // Continue even if upload fails
-              })
+
+            uploadPromise
           ]);
           
           setIsProcessing(false);
@@ -91,9 +100,9 @@ export function useVoiceRecorder() {
     });
   }, []);
 
-  const toggleRecording = useCallback(async (conversationId?: string): Promise<RecordingResult | null> => {
+  const toggleRecording = useCallback(async (options: RecordingOptions = {}): Promise<RecordingResult | null> => {
     if (isRecording) {
-      return await stopRecording(conversationId);
+      return await stopRecording(options);
     } else {
       await startRecording();
       return null;

@@ -8,14 +8,21 @@ interface VoiceRecorderProps {
   onError?: (error: string) => void;
   disabled?: boolean;
   conversationId?: string;
+  shouldUploadAudio?: boolean;
 }
 
-export default function VoiceRecorder({ onTranscription, onError, disabled, conversationId }: VoiceRecorderProps) {
+export default function VoiceRecorder({
+  onTranscription,
+  onError,
+  disabled,
+  conversationId,
+  shouldUploadAudio = true,
+}: VoiceRecorderProps) {
   const { isRecording, isProcessing, toggleRecording } = useVoiceRecorder();
 
   const handleToggleRecording = async () => {
     try {
-      const result = await toggleRecording(conversationId);
+      const result = await toggleRecording({ conversationId, shouldUploadAudio });
       if (result) {
         onTranscription(result.text, result.audioUrl);
       }

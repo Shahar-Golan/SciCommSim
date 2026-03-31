@@ -518,6 +518,7 @@ export default function FeedbackDialogue({
               {!isProcessingTeacher && !isPlayingAudio && (
                 <VoiceRecorder
                   conversationId={conversationId}
+                  shouldUploadAudio={false}
                   onTranscription={handleStudentResponse}
                   disabled={isProcessingTeacher || isPlayingAudio}
                 />
