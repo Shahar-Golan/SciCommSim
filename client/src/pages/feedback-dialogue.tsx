@@ -134,6 +134,7 @@ export default function FeedbackDialogue({
     prepareFeedbackDialogue();
   }, []);
 
+  /* REQUIRED PROSODY CALLS DISABLED
   useEffect(() => {
     fetchProsodyStatus();
   }, [conversationId]);
@@ -148,6 +149,7 @@ export default function FeedbackDialogue({
 
     return () => clearInterval(interval);
   }, [conversationId, prosodyJob?.status]);
+  */
 
   const fetchProsodyStatus = async (showErrorToast = true) => {
     setIsProsodyLoading(true);
@@ -384,6 +386,7 @@ export default function FeedbackDialogue({
         </CardContent>
       </Card>
 
+      {/* DISABLED
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -493,6 +496,7 @@ export default function FeedbackDialogue({
           )}
         </CardContent>
       </Card>
+      */}
 
       <Card>
         <CardContent className="pt-6">

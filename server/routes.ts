@@ -155,6 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(conversation);
 
       // Fire-and-forget enqueue on end: runs in parallel with subsequent text feedback generation.
+      /*
       if (isEndingConversation) {
         setImmediate(async () => {
           try {
@@ -168,6 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         });
       }
+      */
     } catch (error) {
       console.error("Error updating conversation:", error);
       res.status(400).json({ message: "Failed to update conversation" });

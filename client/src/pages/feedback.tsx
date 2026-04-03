@@ -123,6 +123,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
     generateFeedback();
   }, [conversationId]);
 
+  /* REQUIRED PROSODY CALLS DISABLED
   useEffect(() => {
     fetchProsodyStatus();
   }, [conversationId]);
@@ -137,6 +138,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
 
     return () => clearInterval(interval);
   }, [conversationId, prosodyJob?.status]);
+  */
 
   const fetchProsodyStatus = async (showErrorToast = true) => {
     setIsProsodyLoading(true);
@@ -295,7 +297,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
           </div>
         )}
 
-        {/* Prosody results table (Step 4) */}
+        {/* Prosody results table (Step 4) DISABLED
         <div className="bg-slate-50 rounded-xl shadow-sm border border-slate-200 p-8 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold text-slate-800">Prosody Results (Numerical)</h3>
@@ -405,6 +407,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
             </>
           )}
         </div>
+        */}
 
       </div>
 

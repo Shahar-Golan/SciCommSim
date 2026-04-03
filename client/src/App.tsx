@@ -112,7 +112,7 @@ function App() {
 
   const handleConversation2End = (conversationId: string) => {
     setSessionData(prev => ({ ...prev, conversation2Id: conversationId }));
-    setCurrentState("feedback2");
+    setCurrentState("survey"); // Skipped feedback2 based on new requirements
   };
 
   const handleFeedback2Next = () => {
@@ -242,11 +242,12 @@ function App() {
               <div className="hidden md:flex items-center space-x-4">
                 <span className="text-sm text-slate-600">Session Progress</span>
                 <div className="flex space-x-2">
-                  {["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "survey", "thankYou"].map((state, index) => (
+                  {/* Removed "feedback2" from the progress indicator */}
+                  {["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "survey", "thankYou"].map((state, index) => (
                     <div 
                       key={state}
                       className={`w-2 h-2 rounded-full ${
-                        ["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "survey", "thankYou"].indexOf(currentState) >= index
+                        ["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "survey", "thankYou"].indexOf(currentState) >= index
                           ? "bg-blue-500" 
                           : "bg-slate-300"
                       }`}
