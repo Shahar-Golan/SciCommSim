@@ -15,6 +15,7 @@ import ThankYou from "@/pages/thank-you";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AboutUs from "@/pages/about-us";
 import SessionSummary from "@/pages/session-summary";
+import TestFeedback from "@/pages/test-feedback";
 
 type AppState = 
   | "welcome" 
@@ -28,7 +29,8 @@ type AppState =
   | "thankYou"
   | "admin"
   | "aboutUs"
-  | "sessionSummary";
+  | "sessionSummary"
+  | "testFeedback";
 
 interface SessionData {
   studentId: string;
@@ -135,6 +137,10 @@ function App() {
     setCurrentState("sessionSummary");
   };
 
+  const handleTestFeedbackLogin = () => {
+    setCurrentState("testFeedback");
+  };
+
   const handleSessionSummaryBack = () => {
     setCurrentState("thankYou");
   };
@@ -142,7 +148,7 @@ function App() {
   const renderCurrentPage = () => {
     switch (currentState) {
       case "welcome":
-        return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} />;
+        return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} onTestFeedbackLogin={handleTestFeedbackLogin} />;
       
       case "instructions":
         return <Instructions onNext={handleInstructionsNext} />;
@@ -205,9 +211,12 @@ function App() {
       
       case "sessionSummary":
         return <SessionSummary sessionId={sessionData.sessionId} onBack={handleSessionSummaryBack} />;
+
+      case "testFeedback":
+        return <TestFeedback />;
       
       default:
-        return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} />;
+        return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} onTestFeedbackLogin={handleTestFeedbackLogin} />;
     }
   };
 

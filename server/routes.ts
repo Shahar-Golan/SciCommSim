@@ -9,10 +9,23 @@ import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
 import { runProsodyPipelineForConversation } from "./prosody-pipeline";
+import { hashPassword, verifyPassword } from "./password-utils";
+import { sendApprovalEmail, sendAccessRequestNotificationToAdmin } from "./approval-email";
 import multer from "multer";
 import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+const testFeedbackAccessRequestSchema = z.object({
+  username: z.string().trim().min(3).max(64),
+  email: z.string().trim().email().max(320),
+  password: z.string().min(8).max(128),
+});
+
+const testFeedbackLoginSchema = z.object({
+  username: z.string().trim().min(1),
+  password: z.string().min(1),
+});
 
 type FeedbackQueueItem = {
   priority: number;
@@ -77,6 +90,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating student:", error);
       res.status(400).json({ message: "Invalid student data" });
+    }
+  });
+
+  // Request access for Test feedback area (pending until admin approves by email link)
+  app.post("/api/test-feedback/access-requests", async (req, res) => {
+    try {
+      const parsed = testFeedbackAccessRequestSchema.parse(req.body);
+
+      const request = await storage.createTestFeedbackAccessRequest({
+        username: parsed.username,
+        email: parsed.email,
+        passwordHash: hashPassword(parsed.password),
+      });
+
+      const adminEmailSent = await sendAccessRequestNotificationToAdmin({
+        requestId: request.id,
+        username: parsed.username,
+        requesterEmail: parsed.email,
+      });
+
+      res.status(201).json({
+        message: adminEmailSent
+          ? "Request submitted. Admin has been notified by email."
+          : "Request submitted, but admin email notification failed.",
+        adminEmailSent,
+      });
+    } catch (error) {
+      console.error("Failed to create test feedback access request:", error instanceof Error ? error.message : String(error));
+      res.status(400).json({ message: "Failed to submit access request." });
+    }
+  });
+
+  // Login gate for Test feedback area (only approved users)
+  app.post("/api/test-feedback/login", async (req, res) => {
+    try {
+      const parsed = testFeedbackLoginSchema.parse(req.body);
+      const user = await storage.getTestFeedbackAccessUserByUsername(parsed.username);
+
+      if (!user || !verifyPassword(parsed.password, user.passwordHash)) {
+        return res.status(401).json({ message: "Invalid username or password." });
+      }
+
+      res.json({ success: true, username: user.username });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Test feedback login failed:", message);
+
+      if (message.includes('relation "test_feedback_access_users" does not exist')) {
+        return res.status(503).json({ message: "Test feedback access is not initialized yet." });
+      }
+
+      res.status(400).json({ message: "Login failed." });
     }
   });
 
@@ -792,6 +857,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching prompts:", error);
       res.status(500).json({ message: "Failed to fetch prompts" });
+    }
+  });
+
+  app.get("/api/admin/access-requests", async (_req, res) => {
+    try {
+      const requests = await storage.listPendingTestFeedbackAccessRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching access requests:", error);
+      res.status(500).json({ message: "Failed to fetch access requests" });
+    }
+  });
+
+  app.post("/api/admin/access-requests/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const approved = await storage.approveTestFeedbackAccessRequest(id);
+
+      if (!approved) {
+        return res.status(404).json({ message: "Access request not found" });
+      }
+
+      const emailSent = await sendApprovalEmail({
+        to: approved.email,
+        username: approved.username,
+      });
+
+      res.json({ approved, emailSent });
+    } catch (error) {
+      console.error("Error approving access request:", error);
+      res.status(500).json({ message: "Failed to approve access request" });
+    }
+  });
+
+  // Approve request directly from email link
+  app.get("/api/admin/access-requests/:id/approve-from-email", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const approved = await storage.approveTestFeedbackAccessRequest(id);
+
+      if (!approved) {
+        return res.status(404).send("Access request not found.");
+      }
+
+      await sendApprovalEmail({
+        to: approved.email,
+        username: approved.username,
+      });
+
+      res.status(200).send("Request approved successfully. The user can now log in.");
+    } catch (error) {
+      console.error("Error approving request from email:", error instanceof Error ? error.message : String(error));
+      res.status(500).send("Failed to approve request.");
+    }
+  });
+
+  // Reject request directly from email link
+  app.get("/api/admin/access-requests/:id/reject-from-email", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rejected = await storage.rejectTestFeedbackAccessRequest(id);
+
+      if (!rejected) {
+        return res.status(404).send("Access request not found.");
+      }
+
+      res.status(200).send("Request rejected successfully.");
+    } catch (error) {
+      console.error("Error rejecting request from email:", error instanceof Error ? error.message : String(error));
+      res.status(500).send("Failed to reject request.");
+    }
+  });
+
+  app.post("/api/admin/access-requests/:id/reject", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rejected = await storage.rejectTestFeedbackAccessRequest(id);
+
+      if (!rejected) {
+        return res.status(404).json({ message: "Access request not found" });
+      }
+
+      res.json({ rejected });
+    } catch (error) {
+      console.error("Error rejecting access request:", error);
+      res.status(500).json({ message: "Failed to reject access request" });
     }
   });
 

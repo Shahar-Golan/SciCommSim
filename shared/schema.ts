@@ -106,6 +106,26 @@ export const prosodySegmentMetrics = pgTable("prosody_segment_metrics", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Pending requests for test-feedback access (awaiting admin approval)
+export const testFeedbackAccessRequests = pgTable("test_feedback_access_requests", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username", { length: 64 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
+  requestedAt: timestamp("requested_at").defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+});
+
+// Approved users allowed to enter test-feedback area
+export const testFeedbackAccessUsers = pgTable("test_feedback_access_users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username", { length: 64 }).notNull().unique(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  approvedAt: timestamp("approved_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertStudentSchema = createInsertSchema(students).pick({
   name: true,
@@ -162,6 +182,18 @@ export const insertProsodySegmentMetricSchema = createInsertSchema(prosodySegmen
   error: true,
 });
 
+export const insertTestFeedbackAccessRequestSchema = createInsertSchema(testFeedbackAccessRequests).pick({
+  username: true,
+  email: true,
+  passwordHash: true,
+});
+
+export const insertTestFeedbackAccessUserSchema = createInsertSchema(testFeedbackAccessUsers).pick({
+  username: true,
+  email: true,
+  passwordHash: true,
+});
+
 // Types
 export type Student = typeof students.$inferSelect;
 export type InsertStudent = z.infer<typeof insertStudentSchema>;
@@ -183,6 +215,12 @@ export type InsertProsodyJob = z.infer<typeof insertProsodyJobSchema>;
 
 export type ProsodySegmentMetric = typeof prosodySegmentMetrics.$inferSelect;
 export type InsertProsodySegmentMetric = z.infer<typeof insertProsodySegmentMetricSchema>;
+
+export type TestFeedbackAccessRequest = typeof testFeedbackAccessRequests.$inferSelect;
+export type InsertTestFeedbackAccessRequest = z.infer<typeof insertTestFeedbackAccessRequestSchema>;
+
+export type TestFeedbackAccessUser = typeof testFeedbackAccessUsers.$inferSelect;
+export type InsertTestFeedbackAccessUser = z.infer<typeof insertTestFeedbackAccessUserSchema>;
 
 export type Message = {
   role: 'student' | 'ai';

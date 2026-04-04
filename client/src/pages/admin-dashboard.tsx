@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Settings, Users, Clock, Star } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { TrainingSession, AiPrompt } from "@shared/schema";
+import type { TrainingSession, AiPrompt, TestFeedbackAccessRequest } from "@shared/schema";
 
 type SessionWithDetails = TrainingSession & {
   studentName: string;
@@ -17,6 +17,7 @@ type SessionWithDetails = TrainingSession & {
 export default function AdminDashboard() {
   const [sessions, setSessions] = useState<SessionWithDetails[]>([]);
   const [prompts, setPrompts] = useState<AiPrompt[]>([]);
+  const [accessRequests, setAccessRequests] = useState<TestFeedbackAccessRequest[]>([]);
   const [selectedSession, setSelectedSession] = useState<SessionWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState<{ name: string; content: string } | null>(null);
@@ -29,16 +30,19 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [sessionsResponse, promptsResponse] = await Promise.all([
+      const [sessionsResponse, promptsResponse, accessRequestsResponse] = await Promise.all([
         apiRequest("GET", "/api/admin/sessions"),
         apiRequest("GET", "/api/admin/prompts"),
+        apiRequest("GET", "/api/admin/access-requests"),
       ]);
 
       const sessionsData = await sessionsResponse.json();
       const promptsData = await promptsResponse.json();
+      const requestsData = await accessRequestsResponse.json();
 
       setSessions(sessionsData);
       setPrompts(promptsData);
+      setAccessRequests(requestsData);
     } catch (error) {
       console.error("Failed to load admin data:", error);
       toast({
@@ -71,6 +75,46 @@ export default function AdminDashboard() {
       toast({
         title: "Error",
         description: "Failed to update prompt.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    try {
+      const response = await apiRequest("POST", `/api/admin/access-requests/${requestId}/approve`, {});
+      const data = await response.json();
+
+      await loadData();
+      toast({
+        title: "Access Approved",
+        description: data.emailSent
+          ? "User approved and approval email sent."
+          : "User approved. Email was not sent (email config may be missing).",
+      });
+    } catch (error) {
+      console.error("Failed to approve access request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to approve access request.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      await apiRequest("POST", `/api/admin/access-requests/${requestId}/reject`, {});
+      await loadData();
+      toast({
+        title: "Request Rejected",
+        description: "The request has been rejected.",
+      });
+    } catch (error) {
+      console.error("Failed to reject access request:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reject access request.",
         variant: "destructive",
       });
     }
@@ -304,6 +348,52 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-6">
+          <Card className="bg-slate-700 border-slate-600">
+            <CardHeader>
+              <CardTitle>Pending Test Feedback Access Requests</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {accessRequests.length === 0 ? (
+                <p className="text-slate-300 text-sm">No pending requests.</p>
+              ) : (
+                <div className="space-y-3">
+                  {accessRequests.map((request) => (
+                    <div key={request.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 bg-slate-800 rounded-lg border border-slate-600">
+                      <div>
+                        <p className="font-medium">{request.username}</p>
+                        <p className="text-slate-300 text-sm">{request.email}</p>
+                        <p className="text-slate-400 text-xs">
+                          Requested: {new Date(request.requestedAt || "").toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => handleApproveRequest(request.id)}
+                          data-testid={`approve-access-request-${request.id}`}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-slate-700 hover:bg-slate-600 border-slate-500"
+                          onClick={() => handleRejectRequest(request.id)}
+                          data-testid={`reject-access-request-${request.id}`}
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

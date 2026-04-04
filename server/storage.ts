@@ -6,6 +6,8 @@ import {
   aiPrompts,
   prosodyJobs,
   prosodySegmentMetrics,
+  testFeedbackAccessRequests,
+  testFeedbackAccessUsers,
   type Student,
   type InsertStudent,
   type TrainingSession,
@@ -18,6 +20,10 @@ import {
   type InsertAiPrompt,
   type ProsodyJob,
   type ProsodySegmentMetric,
+  type TestFeedbackAccessRequest,
+  type InsertTestFeedbackAccessRequest,
+  type TestFeedbackAccessUser,
+  type InsertTestFeedbackAccessUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, asc } from "drizzle-orm";
@@ -61,6 +67,13 @@ export interface IStorage {
   enqueueProsodyJobForConversation(conversationId: string): Promise<ProsodyJob | undefined>;
   getProsodyJobByConversation(conversationId: string): Promise<ProsodyJob | undefined>;
   listProsodySegmentsByConversation(conversationId: string): Promise<ProsodySegmentMetric[]>;
+
+  // Test feedback access control
+  createTestFeedbackAccessRequest(request: InsertTestFeedbackAccessRequest): Promise<TestFeedbackAccessRequest>;
+  listPendingTestFeedbackAccessRequests(): Promise<TestFeedbackAccessRequest[]>;
+  approveTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined>;
+  rejectTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined>;
+  getTestFeedbackAccessUserByUsername(username: string): Promise<TestFeedbackAccessUser | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -388,6 +401,88 @@ export class DatabaseStorage implements IStorage {
       .from(prosodySegmentMetrics)
       .where(eq(prosodySegmentMetrics.conversationId, conversationId))
       .orderBy(asc(prosodySegmentMetrics.segmentIndex));
+  }
+
+  async createTestFeedbackAccessRequest(requestData: InsertTestFeedbackAccessRequest): Promise<TestFeedbackAccessRequest> {
+    const [request] = await db
+      .insert(testFeedbackAccessRequests)
+      .values({
+        ...requestData,
+        status: "pending",
+        requestedAt: new Date(),
+      })
+      .returning();
+
+    return request;
+  }
+
+  async listPendingTestFeedbackAccessRequests(): Promise<TestFeedbackAccessRequest[]> {
+    return await db
+      .select()
+      .from(testFeedbackAccessRequests)
+      .where(eq(testFeedbackAccessRequests.status, "pending"))
+      .orderBy(desc(testFeedbackAccessRequests.requestedAt));
+  }
+
+  async approveTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(testFeedbackAccessRequests)
+      .where(eq(testFeedbackAccessRequests.id, requestId));
+
+    if (!request) {
+      return undefined;
+    }
+
+    await db
+      .insert(testFeedbackAccessUsers)
+      .values({
+        username: request.username,
+        email: request.email,
+        passwordHash: request.passwordHash,
+        approvedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: testFeedbackAccessUsers.username,
+        set: {
+          email: request.email,
+          passwordHash: request.passwordHash,
+          approvedAt: new Date(),
+        },
+      });
+
+    const [approvedRequest] = await db
+      .update(testFeedbackAccessRequests)
+      .set({
+        status: "approved",
+        reviewedAt: new Date(),
+      })
+      .where(eq(testFeedbackAccessRequests.id, requestId))
+      .returning();
+
+    return approvedRequest;
+  }
+
+  async rejectTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined> {
+    const [rejectedRequest] = await db
+      .update(testFeedbackAccessRequests)
+      .set({
+        status: "rejected",
+        reviewedAt: new Date(),
+      })
+      .where(eq(testFeedbackAccessRequests.id, requestId))
+      .returning();
+
+    return rejectedRequest;
+  }
+
+  async getTestFeedbackAccessUserByUsername(username: string): Promise<TestFeedbackAccessUser | undefined> {
+    const [user] = await db
+      .select()
+      .from(testFeedbackAccessUsers)
+      .where(eq(testFeedbackAccessUsers.username, username));
+
+    return user;
   }
 }
 
