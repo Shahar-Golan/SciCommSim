@@ -27,6 +27,7 @@ function resolveGoogleCredentialsPath(): string {
   const candidates = [
     process.env.GOOGLE_CREDENTIALS_FILE,
     process.env.RENDER ? "/etc/secrets/google-credentials.json" : undefined,
+    process.env.RENDER ? "/etc/secrets/GOOGLE_CREDENTIALS_FILE" : undefined,
     "./google-credentials.json",
   ].filter((candidate): candidate is string => Boolean(candidate));
 
@@ -38,7 +39,7 @@ function resolveGoogleCredentialsPath(): string {
   }
 
   throw new Error(
-    `Google credentials file not found. Tried: ${candidates.join(", ")}. On Render, mount the secret file and set GOOGLE_CREDENTIALS_FILE to its full path.`,
+    `Google credentials file not found. Tried: ${candidates.join(", ")}. On Render, make sure the Secret File name matches exactly.`,
   );
 }
 
