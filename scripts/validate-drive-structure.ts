@@ -23,11 +23,12 @@ function normalizeDriveFolderId(input: string): string {
 }
 
 function createDriveClient() {
-  const credentialsFile = process.env.GOOGLE_CREDENTIALS_FILE || "google-credentials.json";
-  const resolvedCredentialsPath = path.resolve(process.cwd(), credentialsFile);
+  const keyFilePath = process.env.RENDER
+    ? "/etc/secrets/google-credentials.json"
+    : "./google-credentials.json";
 
   const auth = new google.auth.GoogleAuth({
-    keyFile: resolvedCredentialsPath,
+    keyFile: keyFilePath,
     scopes: ["https://www.googleapis.com/auth/drive.readonly"],
   });
 
