@@ -515,6 +515,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Start immediate dialogic flow by creating a real conversation from selected transcript.
+  app.post("/api/test-feedback/start-dialogue", async (req, res) => {
+    try {
+      const username = String(req.headers["x-test-feedback-username"] || "").trim();
+      if (!username) {
+        return res.status(401).json({ message: "Missing approved user context." });
+      }
+
+      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      if (!approvedUser) {
+        return res.status(403).json({ message: "User is not approved for test feedback access." });
+      }
+
+      const { transcriptContent, transcriptName } = req.body;
+      if (!transcriptContent || typeof transcriptContent !== "string") {
+        return res.status(400).json({ message: "transcriptContent is required and must be a string" });
+      }
+
+      if (!transcriptName || typeof transcriptName !== "string") {
+        return res.status(400).json({ message: "transcriptName is required and must be a string" });
+      }
+
+      if (!isDialogicEligibleTranscriptName(transcriptName)) {
+        return res.status(400).json({
+          message: "Dialogic feedback can be started only for conv1 or conv2 transcripts.",
+        });
+      }
+
+      const lines = transcriptContent.split(/\r?\n/).filter((line) => line.trim());
+      const messages: Array<{ role: "student" | "ai"; content: string; timestamp: string }> = [];
+
+      for (const line of lines) {
+        const match = line.match(/^(\s*)(Ayelet|student)(\s*:\s*)(.*)$/i);
+        if (!match) {
+          continue;
+        }
+
+        const [, , speaker, , content] = match;
+        const role = speaker.toLowerCase() === "ayelet" ? "ai" : "student";
+        if (!content.trim()) {
+          continue;
+        }
+
+        messages.push({
+          role,
+          content: content.trim(),
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (messages.length === 0) {
+        return res.status(400).json({ message: "No student or Ayelet messages found in transcript" });
+      }
+
+      const testStudent = await storage.createStudent({
+        name: `Test Feedback - ${username}`,
+      });
+
+      const session = await storage.createTrainingSession({
+        studentId: testStudent.id,
+      });
+
+      const conversationTag = extractConversationTag(transcriptName);
+      const conversationNumber = conversationTag === "conv2" ? 2 : 1;
+
+      const conversation = await storage.createConversation({
+        sessionId: session.id,
+        conversationNumber,
+        transcript: messages,
+      });
+
+      res.json({
+        conversationId: conversation.id,
+        conversationNumber,
+        messageCount: messages.length,
+      });
+    } catch (error) {
+      console.error("Test feedback dialogue bootstrap failed:", error instanceof Error ? error.message : String(error));
+      res.status(500).json({ message: "Failed to start dialogic feedback" });
+    }
+  });
+
   // Training session management
   app.post("/api/training-sessions", async (req, res) => {
     try {
@@ -1343,6 +1425,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  });
+
+  // Ensure all unmatched API routes return JSON instead of Vite HTML.
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ message: "API route not found" });
   });
 
   const httpServer = createServer(app);

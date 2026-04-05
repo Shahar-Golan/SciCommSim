@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, ExternalLink, Loader2, CheckCircle } from "lucide-react";
+import { FileText, ExternalLink, Loader2 } from "lucide-react";
 
 type TranscriptListItem = {
   id: string;
@@ -28,16 +28,29 @@ type TranscriptDetail = {
   webViewLink?: string | null;
 };
 
-type FeedbackQueueItem = {
-  priority: number;
-  type: "improvement" | "strength";
-  concept: string;
-  target_quote: string;
-  issue_description: string;
-};
-
 interface TestFeedbackProps {
   username: string;
+  onStartDialogue: (payload: { conversationId: string; conversationNumber: number }) => void;
+}
+
+async function parseJsonOrThrow(response: Response): Promise<any> {
+  const contentType = response.headers.get("content-type") || "";
+  const rawText = await response.text();
+
+  if (!response.ok) {
+    throw new Error(rawText || `Failed with status ${response.status}`);
+  }
+
+  if (!contentType.includes("application/json")) {
+    const preview = rawText.slice(0, 120).replace(/\s+/g, " ");
+    throw new Error(`Expected JSON response but received: ${preview}`);
+  }
+
+  try {
+    return JSON.parse(rawText);
+  } catch {
+    throw new Error("Server returned invalid JSON payload.");
+  }
 }
 
 function renderTranscriptWithSpeakers(content: string) {
@@ -67,7 +80,7 @@ function renderTranscriptWithSpeakers(content: string) {
   });
 }
 
-export default function TestFeedback({ username }: TestFeedbackProps) {
+export default function TestFeedback({ username, onStartDialogue }: TestFeedbackProps) {
   const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
   const [folderGroups, setFolderGroups] = useState<TranscriptFolderGroup[]>([]);
@@ -75,7 +88,6 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
-  const [feedbackData, setFeedbackData] = useState<any>(null);
   const [feedbackError, setFeedbackError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -92,12 +104,7 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
           credentials: "include",
         });
 
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Failed with status ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await parseJsonOrThrow(response);
         const items = (data?.transcripts || []) as TranscriptListItem[];
         const groups = (data?.folders || []) as TranscriptFolderGroup[];
         setTranscripts(items);
@@ -137,12 +144,7 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
           credentials: "include",
         });
 
-        if (!response.ok) {
-          const text = await response.text();
-          throw new Error(text || `Failed with status ${response.status}`);
-        }
-
-        const data = (await response.json()) as TranscriptDetail;
+        const data = (await parseJsonOrThrow(response)) as TranscriptDetail;
         setSelectedTranscript(data);
       } catch (error) {
         console.error("Failed to load transcript:", error);
@@ -180,10 +182,9 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
 
     setIsGeneratingFeedback(true);
     setFeedbackError("");
-    setFeedbackData(null);
 
     try {
-      const response = await fetch("/api/test-feedback/generate-feedback", {
+      const response = await fetch("/api/test-feedback/start-dialogue", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -196,16 +197,14 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
         credentials: "include",
       });
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || `Failed with status ${response.status}`);
-      }
-
-      const data = await response.json();
-      setFeedbackData(data);
+      const data = await parseJsonOrThrow(response);
+      onStartDialogue({
+        conversationId: data.conversationId,
+        conversationNumber: data.conversationNumber,
+      });
     } catch (error) {
-      console.error("Failed to generate feedback:", error);
-      setFeedbackError(`Failed to generate feedback: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Failed to start dialogic feedback:", error);
+      setFeedbackError(`Failed to start dialogic feedback: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGeneratingFeedback(false);
     }
@@ -311,12 +310,7 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
                 {isGeneratingFeedback ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
-                  </>
-                ) : feedbackData ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Feedback Ready
+                    Preparing...
                   </>
                 ) : (
                   "Start Dialogic Feedback"
@@ -350,71 +344,6 @@ export default function TestFeedback({ username }: TestFeedbackProps) {
       {feedbackError && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {feedbackError}
-        </div>
-      )}
-
-      {feedbackData && (
-        <div className="space-y-4">
-          <div className="grid lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Strengths</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-slate-700 whitespace-pre-wrap">
-                  {feedbackData.strengths || "No clear strengths identified."}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Areas for Improvement</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm text-slate-700 whitespace-pre-wrap">
-                  {feedbackData.improvements || "No specific improvements identified."}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {feedbackData.feedbackQueue && feedbackData.feedbackQueue.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Detailed Feedback Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {feedbackData.feedbackQueue.map((item: FeedbackQueueItem) => (
-                    <div key={`${item.priority}-${item.concept}`} className="border-l-4 border-blue-500 pl-4 py-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">{item.concept}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Type: {item.type === "strength" ? "Strength" : "Improvement"}
-                          </p>
-                        </div>
-                        <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                          #{item.priority}
-                        </span>
-                      </div>
-                      <p className="text-sm text-slate-700 mt-2">{item.issue_description}</p>
-                      {item.target_quote && (
-                        <p className="text-xs text-slate-600 mt-2 italic">
-                          Quote: "{item.target_quote}"
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <div className="text-xs text-slate-500 text-center">
-            Analyzed {feedbackData.messageCount} messages
-          </div>
         </div>
       )}
     </div>

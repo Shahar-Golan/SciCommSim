@@ -30,7 +30,8 @@ type AppState =
   | "admin"
   | "aboutUs"
   | "sessionSummary"
-  | "testFeedback";
+  | "testFeedback"
+  | "testFeedbackDialogue";
 
 interface SessionData {
   studentId: string;
@@ -48,6 +49,8 @@ function App() {
     sessionId: "",
   });
   const [testFeedbackUsername, setTestFeedbackUsername] = useState("");
+  const [testFeedbackConversationId, setTestFeedbackConversationId] = useState("");
+  const [testFeedbackConversationNumber, setTestFeedbackConversationNumber] = useState(1);
 
   // Scroll to top when navigating between pages
   useEffect(() => {
@@ -143,6 +146,16 @@ function App() {
     setCurrentState("testFeedback");
   };
 
+  const handleStartTestFeedbackDialogue = (payload: { conversationId: string; conversationNumber: number }) => {
+    setTestFeedbackConversationId(payload.conversationId);
+    setTestFeedbackConversationNumber(payload.conversationNumber);
+    setCurrentState("testFeedbackDialogue");
+  };
+
+  const handleCompleteTestFeedbackDialogue = () => {
+    setCurrentState("testFeedback");
+  };
+
   const handleSessionSummaryBack = () => {
     setCurrentState("thankYou");
   };
@@ -215,7 +228,16 @@ function App() {
         return <SessionSummary sessionId={sessionData.sessionId} onBack={handleSessionSummaryBack} />;
 
       case "testFeedback":
-        return <TestFeedback username={testFeedbackUsername} />;
+        return <TestFeedback username={testFeedbackUsername} onStartDialogue={handleStartTestFeedbackDialogue} />;
+
+      case "testFeedbackDialogue":
+        return (
+          <FeedbackDialogue
+            conversationId={testFeedbackConversationId}
+            conversationNumber={testFeedbackConversationNumber}
+            onComplete={handleCompleteTestFeedbackDialogue}
+          />
+        );
       
       default:
         return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} onTestFeedbackLogin={handleTestFeedbackLogin} />;
