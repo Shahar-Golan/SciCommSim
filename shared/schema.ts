@@ -109,7 +109,6 @@ export const prosodySegmentMetrics = pgTable("prosody_segment_metrics", {
 // Pending requests for test-feedback access (awaiting admin approval)
 export const testFeedbackAccessRequests = pgTable("test_feedback_access_requests", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: varchar("username", { length: 64 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | approved | rejected
@@ -120,7 +119,6 @@ export const testFeedbackAccessRequests = pgTable("test_feedback_access_requests
 // Approved users allowed to enter test-feedback area
 export const testFeedbackAccessUsers = pgTable("test_feedback_access_users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: varchar("username", { length: 64 }).notNull().unique(),
   email: varchar("email", { length: 320 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   approvedAt: timestamp("approved_at").defaultNow(),
@@ -183,13 +181,11 @@ export const insertProsodySegmentMetricSchema = createInsertSchema(prosodySegmen
 });
 
 export const insertTestFeedbackAccessRequestSchema = createInsertSchema(testFeedbackAccessRequests).pick({
-  username: true,
   email: true,
   passwordHash: true,
 });
 
 export const insertTestFeedbackAccessUserSchema = createInsertSchema(testFeedbackAccessUsers).pick({
-  username: true,
   email: true,
   passwordHash: true,
 });

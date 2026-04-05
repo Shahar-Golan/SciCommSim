@@ -73,7 +73,7 @@ export interface IStorage {
   listPendingTestFeedbackAccessRequests(): Promise<TestFeedbackAccessRequest[]>;
   approveTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined>;
   rejectTestFeedbackAccessRequest(requestId: string): Promise<TestFeedbackAccessRequest | undefined>;
-  getTestFeedbackAccessUserByUsername(username: string): Promise<TestFeedbackAccessUser | undefined>;
+  getTestFeedbackAccessUserByEmail(email: string): Promise<TestFeedbackAccessUser | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -437,13 +437,12 @@ export class DatabaseStorage implements IStorage {
     await db
       .insert(testFeedbackAccessUsers)
       .values({
-        username: request.username,
         email: request.email,
         passwordHash: request.passwordHash,
         approvedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: testFeedbackAccessUsers.username,
+        target: testFeedbackAccessUsers.email,
         set: {
           email: request.email,
           passwordHash: request.passwordHash,
@@ -476,11 +475,11 @@ export class DatabaseStorage implements IStorage {
     return rejectedRequest;
   }
 
-  async getTestFeedbackAccessUserByUsername(username: string): Promise<TestFeedbackAccessUser | undefined> {
+  async getTestFeedbackAccessUserByEmail(email: string): Promise<TestFeedbackAccessUser | undefined> {
     const [user] = await db
       .select()
       .from(testFeedbackAccessUsers)
-      .where(eq(testFeedbackAccessUsers.username, username));
+      .where(eq(testFeedbackAccessUsers.email, email));
 
     return user;
   }

@@ -365,7 +365,6 @@ export default function AdminDashboard() {
                   {accessRequests.map((request) => (
                     <div key={request.id} className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 bg-slate-800 rounded-lg border border-slate-600">
                       <div>
-                        <p className="font-medium">{request.username}</p>
                         <p className="text-slate-300 text-sm">{request.email}</p>
                         <p className="text-slate-400 text-xs">
                           Requested: {new Date(request.requestedAt || "").toLocaleString()}

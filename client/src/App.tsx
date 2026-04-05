@@ -48,7 +48,7 @@ function App() {
     studentName: "",
     sessionId: "",
   });
-  const [testFeedbackUsername, setTestFeedbackUsername] = useState("");
+  const [testFeedbackEmail, setTestFeedbackEmail] = useState("");
   const [testFeedbackConversationId, setTestFeedbackConversationId] = useState("");
   const [testFeedbackConversationNumber, setTestFeedbackConversationNumber] = useState(1);
 
@@ -141,8 +141,8 @@ function App() {
     setCurrentState("sessionSummary");
   };
 
-  const handleTestFeedbackLogin = (username: string) => {
-    setTestFeedbackUsername(username);
+  const handleTestFeedbackLogin = (email: string) => {
+    setTestFeedbackEmail(email);
     setCurrentState("testFeedback");
   };
 
@@ -228,7 +228,7 @@ function App() {
         return <SessionSummary sessionId={sessionData.sessionId} onBack={handleSessionSummaryBack} />;
 
       case "testFeedback":
-        return <TestFeedback username={testFeedbackUsername} onStartDialogue={handleStartTestFeedbackDialogue} />;
+        return <TestFeedback email={testFeedbackEmail} onStartDialogue={handleStartTestFeedbackDialogue} />;
 
       case "testFeedbackDialogue":
         return (

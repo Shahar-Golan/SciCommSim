@@ -2,12 +2,10 @@ import nodemailer from "nodemailer";
 
 type SendApprovalEmailInput = {
   to: string;
-  username: string;
 };
 
 type SendAccessRequestNotificationInput = {
   requestId: string;
-  username: string;
   requesterEmail: string;
 };
 
@@ -46,9 +44,9 @@ export async function sendApprovalEmail(input: SendApprovalEmailInput): Promise<
       to: input.to,
       subject: "Your Test Feedback Access Was Approved",
       html: `
-        <p>Hello ${input.username},</p>
+        <p>Hello,</p>
         <p>Your request to access the Test feedback section has been approved.</p>
-        <p>You can now log in from the Welcome page using your registered username and password.</p>
+        <p>You can now log in from the Welcome page using your registered email and password.</p>
       `,
     });
   } catch (error) {
@@ -77,7 +75,6 @@ export async function sendAccessRequestNotificationToAdmin(input: SendAccessRequ
       subject: "New Test Feedback Access Request",
       html: `
         <p>A new user requested access to the Test feedback system.</p>
-        <p><strong>Username:</strong> ${input.username}</p>
         <p><strong>Email:</strong> ${input.requesterEmail}</p>
         <p>
           <a href="${approveUrl}" style="display:inline-block;padding:10px 16px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;margin-right:10px;">Approve</a>

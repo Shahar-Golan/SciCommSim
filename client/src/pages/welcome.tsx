@@ -9,17 +9,16 @@ import { useToast } from "@/hooks/use-toast";
 interface WelcomeProps {
   onNext: (studentId: string, studentName: string) => void;
   onAbout: () => void;
-  onTestFeedbackLogin: (username: string) => void;
+  onTestFeedbackLogin: (email: string) => void;
 }
 
 export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: WelcomeProps) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showTestFeedbackLogin, setShowTestFeedbackLogin] = useState(false);
-  const [testFeedbackUsername, setTestFeedbackUsername] = useState("");
+  const [testFeedbackEmail, setTestFeedbackEmail] = useState("");
   const [testFeedbackPassword, setTestFeedbackPassword] = useState("");
   const [showAccessRequestForm, setShowAccessRequestForm] = useState(false);
-  const [requestUsername, setRequestUsername] = useState("");
   const [requestEmail, setRequestEmail] = useState("");
   const [requestPassword, setRequestPassword] = useState("");
   const [isRequestLoading, setIsRequestLoading] = useState(false);
@@ -58,10 +57,10 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
   const handleTestFeedbackLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!testFeedbackUsername.trim() || !testFeedbackPassword.trim()) {
+    if (!testFeedbackEmail.trim() || !testFeedbackPassword.trim()) {
       toast({
         title: "Missing Credentials",
-        description: "Please enter both username and password.",
+        description: "Please enter both email and password.",
         variant: "destructive",
       });
       return;
@@ -70,11 +69,11 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
     setIsLoginLoading(true);
     try {
       await apiRequest("POST", "/api/test-feedback/login", {
-        username: testFeedbackUsername.trim(),
+        email: testFeedbackEmail.trim(),
         password: testFeedbackPassword,
       });
 
-      onTestFeedbackLogin(testFeedbackUsername.trim());
+      onTestFeedbackLogin(testFeedbackEmail.trim());
     } catch (error) {
       console.error("Test feedback login failed:", error);
       toast({
@@ -90,10 +89,10 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
   const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!requestUsername.trim() || !requestEmail.trim() || !requestPassword.trim()) {
+    if (!requestEmail.trim() || !requestPassword.trim()) {
       toast({
         title: "Missing Fields",
-        description: "Please fill username, email, and password.",
+        description: "Please fill email and password.",
         variant: "destructive",
       });
       return;
@@ -102,7 +101,6 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
     setIsRequestLoading(true);
     try {
       const response = await apiRequest("POST", "/api/test-feedback/access-requests", {
-        username: requestUsername.trim(),
         email: requestEmail.trim(),
         password: requestPassword,
       });
@@ -116,7 +114,6 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
           : "Request saved, but admin notification email failed.",
       });
 
-      setRequestUsername("");
       setRequestEmail("");
       setRequestPassword("");
       setShowAccessRequestForm(false);
@@ -124,7 +121,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
       console.error("Failed to submit access request:", error);
       toast({
         title: "Request Failed",
-        description: "Could not submit request. Username or email may already exist.",
+        description: "Could not submit request. Email may already exist.",
         variant: "destructive",
       });
     } finally {
@@ -161,17 +158,17 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
             <CardContent className="p-6">
               <form onSubmit={handleTestFeedbackLogin} className="space-y-4">
                 <div>
-                  <label htmlFor="test-feedback-username" className="block text-sm font-medium text-slate-700 mb-2">
-                    Username
+                  <label htmlFor="test-feedback-email" className="block text-sm font-medium text-slate-700 mb-2">
+                    Email
                   </label>
                   <Input
-                    id="test-feedback-username"
-                    type="text"
-                    value={testFeedbackUsername}
-                    onChange={(e) => setTestFeedbackUsername(e.target.value)}
-                    placeholder="Enter username"
+                    id="test-feedback-email"
+                    type="email"
+                    value={testFeedbackEmail}
+                    onChange={(e) => setTestFeedbackEmail(e.target.value)}
+                    placeholder="Enter email"
                     className="w-full"
-                    data-testid="input-test-feedback-username"
+                    data-testid="input-test-feedback-email"
                   />
                 </div>
 
@@ -208,21 +205,6 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
 
                 {showAccessRequestForm && (
                   <form onSubmit={handleRequestAccess} className="space-y-3 mt-4">
-                    <div>
-                      <label htmlFor="request-access-username" className="block text-sm font-medium text-slate-700 mb-2">
-                        Username
-                      </label>
-                      <Input
-                        id="request-access-username"
-                        type="text"
-                        value={requestUsername}
-                        onChange={(e) => setRequestUsername(e.target.value)}
-                        placeholder="Choose username"
-                        className="w-full"
-                        data-testid="input-request-access-username"
-                      />
-                    </div>
-
                     <div>
                       <label htmlFor="request-access-email" className="block text-sm font-medium text-slate-700 mb-2">
                         Email

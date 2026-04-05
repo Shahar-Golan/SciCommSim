@@ -230,13 +230,12 @@ function extractDocText(content: Array<any> | undefined): string {
 }
 
 const testFeedbackAccessRequestSchema = z.object({
-  username: z.string().trim().min(3).max(64),
   email: z.string().trim().email().max(320),
   password: z.string().min(8).max(128),
 });
 
 const testFeedbackLoginSchema = z.object({
-  username: z.string().trim().min(1),
+  email: z.string().trim().email().max(320),
   password: z.string().min(1),
 });
 
@@ -312,14 +311,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsed = testFeedbackAccessRequestSchema.parse(req.body);
 
       const request = await storage.createTestFeedbackAccessRequest({
-        username: parsed.username,
         email: parsed.email,
         passwordHash: hashPassword(parsed.password),
       });
 
       const adminEmailSent = await sendAccessRequestNotificationToAdmin({
         requestId: request.id,
-        username: parsed.username,
         requesterEmail: parsed.email,
       });
 
@@ -339,13 +336,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/test-feedback/login", async (req, res) => {
     try {
       const parsed = testFeedbackLoginSchema.parse(req.body);
-      const user = await storage.getTestFeedbackAccessUserByUsername(parsed.username);
+      const user = await storage.getTestFeedbackAccessUserByEmail(parsed.email);
 
       if (!user || !verifyPassword(parsed.password, user.passwordHash)) {
-        return res.status(401).json({ message: "Invalid username or password." });
+        return res.status(401).json({ message: "Invalid email or password." });
       }
 
-      res.json({ success: true, username: user.username });
+      res.json({ success: true, email: user.email });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error("Test feedback login failed:", message);
@@ -361,12 +358,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mission 2: list Google Docs transcripts from a specific Drive folder (approved users only)
   app.get("/api/test-feedback/transcripts", async (req, res) => {
     try {
-      const username = String(req.headers["x-test-feedback-username"] || "").trim();
-      if (!username) {
+      const email = String(req.headers["x-test-feedback-email"] || "").trim();
+      if (!email) {
         return res.status(401).json({ message: "Missing approved user context." });
       }
 
-      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      const approvedUser = await storage.getTestFeedbackAccessUserByEmail(email);
       if (!approvedUser) {
         return res.status(403).json({ message: "User is not approved for test feedback access." });
       }
@@ -435,12 +432,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mission 2: read a single Google Doc transcript (approved users only)
   app.get("/api/test-feedback/transcripts/:docId", async (req, res) => {
     try {
-      const username = String(req.headers["x-test-feedback-username"] || "").trim();
-      if (!username) {
+      const email = String(req.headers["x-test-feedback-email"] || "").trim();
+      if (!email) {
         return res.status(401).json({ message: "Missing approved user context." });
       }
 
-      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      const approvedUser = await storage.getTestFeedbackAccessUserByEmail(email);
       if (!approvedUser) {
         return res.status(403).json({ message: "User is not approved for test feedback access." });
       }
@@ -472,12 +469,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mission 4: Generate feedback from test transcript (approved users only)
   app.post("/api/test-feedback/generate-feedback", async (req, res) => {
     try {
-      const username = String(req.headers["x-test-feedback-username"] || "").trim();
-      if (!username) {
+      const email = String(req.headers["x-test-feedback-email"] || "").trim();
+      if (!email) {
         return res.status(401).json({ message: "Missing approved user context." });
       }
 
-      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      const approvedUser = await storage.getTestFeedbackAccessUserByEmail(email);
       if (!approvedUser) {
         return res.status(403).json({ message: "User is not approved for test feedback access." });
       }
@@ -538,12 +535,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Start immediate dialogic flow by creating a real conversation from selected transcript.
   app.post("/api/test-feedback/start-dialogue", async (req, res) => {
     try {
-      const username = String(req.headers["x-test-feedback-username"] || "").trim();
-      if (!username) {
+      const email = String(req.headers["x-test-feedback-email"] || "").trim();
+      if (!email) {
         return res.status(401).json({ message: "Missing approved user context." });
       }
 
-      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      const approvedUser = await storage.getTestFeedbackAccessUserByEmail(email);
       if (!approvedUser) {
         return res.status(403).json({ message: "User is not approved for test feedback access." });
       }
@@ -590,7 +587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const testStudent = await storage.createStudent({
-        name: `Test Feedback - ${username}`,
+        name: `Test Feedback - ${email}`,
       });
 
       const session = await storage.createTrainingSession({
@@ -1353,7 +1350,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const emailSent = await sendApprovalEmail({
         to: approved.email,
-        username: approved.username,
       });
 
       res.json({ approved, emailSent });
@@ -1375,7 +1371,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await sendApprovalEmail({
         to: approved.email,
-        username: approved.username,
       });
 
       res.status(200).send("Request approved successfully. The user can now log in.");

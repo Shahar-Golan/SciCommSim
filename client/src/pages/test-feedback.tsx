@@ -29,7 +29,7 @@ type TranscriptDetail = {
 };
 
 interface TestFeedbackProps {
-  username: string;
+  email: string;
   onStartDialogue: (payload: { conversationId: string; conversationNumber: number }) => void;
 }
 
@@ -112,7 +112,7 @@ function sortTranscriptItems(transcripts: TranscriptListItem[]): TranscriptListI
   });
 }
 
-export default function TestFeedback({ username, onStartDialogue }: TestFeedbackProps) {
+export default function TestFeedback({ email, onStartDialogue }: TestFeedbackProps) {
   const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
   const [selectedTranscript, setSelectedTranscript] = useState<TranscriptDetail | null>(null);
@@ -130,7 +130,7 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
       try {
         const response = await fetch("/api/test-feedback/transcripts", {
           headers: {
-            "x-test-feedback-username": username,
+            "x-test-feedback-email": email,
           },
           credentials: "include",
         });
@@ -150,10 +150,10 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
       }
     };
 
-    if (username) {
+    if (email) {
       loadTranscripts();
     }
-  }, [username]);
+  }, [email]);
 
   useEffect(() => {
     const loadTranscript = async () => {
@@ -168,7 +168,7 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
       try {
         const response = await fetch(`/api/test-feedback/transcripts/${selectedDocId}`, {
           headers: {
-            "x-test-feedback-username": username,
+            "x-test-feedback-email": email,
           },
           credentials: "include",
         });
@@ -183,10 +183,10 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
       }
     };
 
-    if (username) {
+    if (email) {
       loadTranscript();
     }
-  }, [selectedDocId, username]);
+  }, [selectedDocId, email]);
 
   const selectedName = useMemo(() => {
     return transcripts.find((t) => t.id === selectedDocId)?.name || "";
@@ -235,7 +235,7 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-test-feedback-username": username,
+          "x-test-feedback-email": email,
         },
         body: JSON.stringify({
           transcriptContent: selectedTranscript.content,
