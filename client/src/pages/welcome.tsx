@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 interface WelcomeProps {
   onNext: (studentId: string, studentName: string) => void;
   onAbout: () => void;
-  onTestFeedbackLogin: () => void;
+  onTestFeedbackLogin: (username: string) => void;
 }
 
 export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: WelcomeProps) {
@@ -74,7 +74,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
         password: testFeedbackPassword,
       });
 
-      onTestFeedbackLogin();
+      onTestFeedbackLogin(testFeedbackUsername.trim());
     } catch (error) {
       console.error("Test feedback login failed:", error);
       toast({

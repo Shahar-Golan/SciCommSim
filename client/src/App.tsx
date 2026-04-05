@@ -47,6 +47,7 @@ function App() {
     studentName: "",
     sessionId: "",
   });
+  const [testFeedbackUsername, setTestFeedbackUsername] = useState("");
 
   // Scroll to top when navigating between pages
   useEffect(() => {
@@ -137,7 +138,8 @@ function App() {
     setCurrentState("sessionSummary");
   };
 
-  const handleTestFeedbackLogin = () => {
+  const handleTestFeedbackLogin = (username: string) => {
+    setTestFeedbackUsername(username);
     setCurrentState("testFeedback");
   };
 
@@ -213,7 +215,7 @@ function App() {
         return <SessionSummary sessionId={sessionData.sessionId} onBack={handleSessionSummaryBack} />;
 
       case "testFeedback":
-        return <TestFeedback />;
+        return <TestFeedback username={testFeedbackUsername} />;
       
       default:
         return <Welcome onNext={handleWelcomeNext} onAbout={handleShowAbout} onTestFeedbackLogin={handleTestFeedbackLogin} />;

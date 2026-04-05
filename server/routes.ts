@@ -11,10 +11,137 @@ import { runProsodyStep3ForConversation } from "./prosody-step3";
 import { runProsodyPipelineForConversation } from "./prosody-pipeline";
 import { hashPassword, verifyPassword } from "./password-utils";
 import { sendApprovalEmail, sendAccessRequestNotificationToAdmin } from "./approval-email";
+import { google } from "googleapis";
+import path from "path";
 import multer from "multer";
 import { z } from "zod";
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+function normalizeDriveFolderId(input: string): string {
+  const match = input.match(/folders\/([a-zA-Z0-9_-]+)/);
+  return match?.[1] || input;
+}
+
+function createGoogleClients() {
+  const credentialsFile = process.env.GOOGLE_CREDENTIALS_FILE || "google-credentials.json";
+  const resolvedCredentialsPath = path.resolve(process.cwd(), credentialsFile);
+
+  const auth = new google.auth.GoogleAuth({
+    keyFile: resolvedCredentialsPath,
+    scopes: [
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/documents.readonly",
+    ],
+  });
+
+  const drive = google.drive({ version: "v3", auth });
+  const docs = google.docs({ version: "v1", auth });
+  return { drive, docs };
+}
+
+type TranscriptListItem = {
+  id: string;
+  name: string;
+  modifiedTime?: string;
+  webViewLink?: string;
+  folderPath: string;
+  sessionFolder: string;
+  studentNumber?: number;
+};
+
+type TranscriptFolderGroup = {
+  folderName: string;
+  transcripts: TranscriptListItem[];
+};
+
+function extractStudentNumber(fileName: string): number | undefined {
+  const match = fileName.match(/student_(\d+)_/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : undefined;
+}
+
+async function listFolderChildren(drive: any, folderId: string) {
+  const files: any[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: "nextPageToken, files(id,name,mimeType,modifiedTime,webViewLink)",
+      pageToken,
+      pageSize: 1000,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+
+    files.push(...(response.data.files || []));
+    pageToken = response.data.nextPageToken || undefined;
+  } while (pageToken);
+
+  return files;
+}
+
+async function collectDocsRecursively(
+  drive: any,
+  folderId: string,
+  folderPath: string,
+  acc: TranscriptListItem[],
+): Promise<void> {
+  const children = await listFolderChildren(drive, folderId);
+
+  for (const item of children) {
+    if (!item.id || !item.name) {
+      continue;
+    }
+
+    if (item.mimeType === "application/vnd.google-apps.folder") {
+      const nextPath = folderPath ? `${folderPath}/${item.name}` : item.name;
+      await collectDocsRecursively(drive, item.id, nextPath, acc);
+      continue;
+    }
+
+    if (item.mimeType === "application/vnd.google-apps.document") {
+      const sessionFolder = folderPath.split("/")[0] || "Root";
+      acc.push({
+        id: item.id,
+        name: item.name,
+        modifiedTime: item.modifiedTime || undefined,
+        webViewLink: item.webViewLink || undefined,
+        folderPath,
+        sessionFolder,
+        studentNumber: extractStudentNumber(item.name),
+      });
+    }
+  }
+}
+
+function extractDocText(content: Array<any> | undefined): string {
+  if (!content) {
+    return "";
+  }
+
+  const chunks: string[] = [];
+  for (const element of content) {
+    const paragraphElements = element?.paragraph?.elements;
+    if (!paragraphElements) {
+      continue;
+    }
+
+    for (const part of paragraphElements) {
+      const text = part?.textRun?.content;
+      if (typeof text === "string") {
+        chunks.push(text);
+      }
+    }
+  }
+
+  return chunks.join("").trim();
+}
 
 const testFeedbackAccessRequestSchema = z.object({
   username: z.string().trim().min(3).max(64),
@@ -142,6 +269,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       res.status(400).json({ message: "Login failed." });
+    }
+  });
+
+  // Mission 2: list Google Docs transcripts from a specific Drive folder (approved users only)
+  app.get("/api/test-feedback/transcripts", async (req, res) => {
+    try {
+      const username = String(req.headers["x-test-feedback-username"] || "").trim();
+      if (!username) {
+        return res.status(401).json({ message: "Missing approved user context." });
+      }
+
+      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      if (!approvedUser) {
+        return res.status(403).json({ message: "User is not approved for test feedback access." });
+      }
+
+      const folderInput = process.env.GOOGLE_DRIVE_FOLDER_ID || "1Ed-P__AoqI5ZK3l2WR10Bwa1ljULaXw0";
+      const folderId = normalizeDriveFolderId(folderInput);
+      const { drive } = createGoogleClients();
+
+      // Confirm root folder is visible to the service account before traversing.
+      await drive.files.get({
+        fileId: folderId,
+        fields: "id,name",
+        supportsAllDrives: true,
+      });
+
+      const transcripts: TranscriptListItem[] = [];
+      await collectDocsRecursively(drive, folderId, "", transcripts);
+
+      transcripts.sort((a, b) => {
+        const folderCompare = a.sessionFolder.localeCompare(b.sessionFolder);
+        if (folderCompare !== 0) {
+          return folderCompare;
+        }
+
+        const aStudent = a.studentNumber ?? Number.MAX_SAFE_INTEGER;
+        const bStudent = b.studentNumber ?? Number.MAX_SAFE_INTEGER;
+        if (aStudent !== bStudent) {
+          return aStudent - bStudent;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+
+      const folderMap = new Map<string, TranscriptListItem[]>();
+      for (const transcript of transcripts) {
+        const existing = folderMap.get(transcript.sessionFolder) || [];
+        existing.push(transcript);
+        folderMap.set(transcript.sessionFolder, existing);
+      }
+
+      const folders: TranscriptFolderGroup[] = Array.from(folderMap.entries()).map(([folderName, folderTranscripts]) => ({
+        folderName,
+        transcripts: folderTranscripts,
+      }));
+
+      res.json({ transcripts, folders });
+    } catch (error) {
+      console.error("Failed to list Google Docs transcripts:", error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("File not found")) {
+        return res.status(404).json({
+          message: "Drive folder not found for this service account. Share the folder with drive-reader@scicommsim.iam.gserviceaccount.com.",
+        });
+      }
+
+      res.status(500).json({ message: "Failed to list transcripts from Google Drive." });
+    }
+  });
+
+  // Mission 2: read a single Google Doc transcript (approved users only)
+  app.get("/api/test-feedback/transcripts/:docId", async (req, res) => {
+    try {
+      const username = String(req.headers["x-test-feedback-username"] || "").trim();
+      if (!username) {
+        return res.status(401).json({ message: "Missing approved user context." });
+      }
+
+      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      if (!approvedUser) {
+        return res.status(403).json({ message: "User is not approved for test feedback access." });
+      }
+
+      const { docId } = req.params;
+      const { docs, drive } = createGoogleClients();
+
+      const [docResponse, fileResponse] = await Promise.all([
+        docs.documents.get({ documentId: docId }),
+        drive.files.get({ fileId: docId, fields: "webViewLink" }),
+      ]);
+
+      const title = docResponse.data.title || "Untitled Transcript";
+      const content = extractDocText(docResponse.data.body?.content as Array<any> | undefined);
+      const webViewLink = fileResponse.data.webViewLink || null;
+
+      res.json({
+        id: docId,
+        title,
+        content,
+        webViewLink,
+      });
+    } catch (error) {
+      console.error("Failed to read Google Doc transcript:", error instanceof Error ? error.message : String(error));
+      res.status(500).json({ message: "Failed to read transcript document." });
     }
   });
 
