@@ -1,5 +1,6 @@
 import "dotenv/config";
 import path from "path";
+import fs from "fs";
 import { google } from "googleapis";
 
 type DriveFile = {
@@ -22,10 +23,27 @@ function normalizeDriveFolderId(input: string): string {
   return match?.[1] || input;
 }
 
+function resolveGoogleCredentialsPath(): string {
+  const candidates = [
+    process.env.GOOGLE_CREDENTIALS_FILE,
+    process.env.RENDER ? "/etc/secrets/google-credentials.json" : undefined,
+    "./google-credentials.json",
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(process.cwd(), candidate);
+    if (fs.existsSync(resolved)) {
+      return resolved;
+    }
+  }
+
+  throw new Error(
+    `Google credentials file not found. Tried: ${candidates.join(", ")}. On Render, mount the secret file and set GOOGLE_CREDENTIALS_FILE to its full path.`,
+  );
+}
+
 function createDriveClient() {
-  const keyFilePath = process.env.RENDER
-    ? "/etc/secrets/google-credentials.json"
-    : "./google-credentials.json";
+  const keyFilePath = resolveGoogleCredentialsPath();
 
   const auth = new google.auth.GoogleAuth({
     keyFile: keyFilePath,

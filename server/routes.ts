@@ -13,6 +13,7 @@ import { hashPassword, verifyPassword } from "./password-utils";
 import { sendApprovalEmail, sendAccessRequestNotificationToAdmin } from "./approval-email";
 import { google } from "googleapis";
 import path from "path";
+import fs from "fs";
 import multer from "multer";
 import { z } from "zod";
 
@@ -67,10 +68,27 @@ async function resolveAccessibleDriveFolder(drive: any, candidates: string[]): P
   throw new Error(`No accessible Drive folder found in candidates: ${candidates.join(", ")}`);
 }
 
+function resolveGoogleCredentialsPath(): string {
+  const candidates = [
+    process.env.GOOGLE_CREDENTIALS_FILE,
+    process.env.RENDER ? "/etc/secrets/google-credentials.json" : undefined,
+    "./google-credentials.json",
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    const resolved = path.isAbsolute(candidate) ? candidate : path.resolve(process.cwd(), candidate);
+    if (fs.existsSync(resolved)) {
+      return resolved;
+    }
+  }
+
+  throw new Error(
+    `Google credentials file not found. Tried: ${candidates.join(", ")}. On Render, mount the secret file and set GOOGLE_CREDENTIALS_FILE to its full path.`,
+  );
+}
+
 function createGoogleClients() {
-  const keyFilePath = process.env.RENDER
-    ? "/etc/secrets/google-credentials.json"
-    : "./google-credentials.json";
+  const keyFilePath = resolveGoogleCredentialsPath();
 
   const auth = new google.auth.GoogleAuth({
     keyFile: keyFilePath,
