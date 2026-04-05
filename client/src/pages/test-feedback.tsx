@@ -80,10 +80,41 @@ function renderTranscriptWithSpeakers(content: string) {
   });
 }
 
+function getStudentFolderLabel(item: TranscriptListItem): string {
+  const pathParts = (item.folderPath || item.sessionFolder || "Root")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const studentFolder = pathParts.find((part) => /student[_-]?\d+/i.test(part));
+  return studentFolder || item.sessionFolder || "Root";
+}
+
+function getTranscriptPhaseOrder(name: string): number {
+  const normalized = name.toLowerCase();
+
+  if (normalized.includes("conv1")) return 1;
+  if (normalized.includes("feedback1")) return 2;
+  if (normalized.includes("conv2")) return 3;
+  if (normalized.includes("feedback2")) return 4;
+
+  return 99;
+}
+
+function sortTranscriptItems(transcripts: TranscriptListItem[]): TranscriptListItem[] {
+  return [...transcripts].sort((a, b) => {
+    const phaseCompare = getTranscriptPhaseOrder(a.name) - getTranscriptPhaseOrder(b.name);
+    if (phaseCompare !== 0) {
+      return phaseCompare;
+    }
+
+    return a.name.localeCompare(b.name);
+  });
+}
+
 export default function TestFeedback({ username, onStartDialogue }: TestFeedbackProps) {
   const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
-  const [folderGroups, setFolderGroups] = useState<TranscriptFolderGroup[]>([]);
   const [selectedTranscript, setSelectedTranscript] = useState<TranscriptDetail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
@@ -106,9 +137,7 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
 
         const data = await parseJsonOrThrow(response);
         const items = (data?.transcripts || []) as TranscriptListItem[];
-        const groups = (data?.folders || []) as TranscriptFolderGroup[];
         setTranscripts(items);
-        setFolderGroups(groups);
 
         if (items.length > 0) {
           setSelectedDocId(items[0].id);
@@ -166,6 +195,24 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
   const selectedTranscriptMeta = useMemo(() => {
     return transcripts.find((t) => t.id === selectedDocId);
   }, [selectedDocId, transcripts]);
+
+  const folderGroups = useMemo(() => {
+    const groups = new Map<string, TranscriptListItem[]>();
+
+    for (const item of transcripts) {
+      const folderName = getStudentFolderLabel(item);
+      const existing = groups.get(folderName) || [];
+      existing.push(item);
+      groups.set(folderName, existing);
+    }
+
+    return Array.from(groups.entries())
+      .map(([folderName, groupTranscripts]) => ({
+        folderName,
+        transcripts: sortTranscriptItems(groupTranscripts),
+      }))
+      .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { numeric: true }));
+  }, [transcripts]);
 
   const canStartDialogic = Boolean(selectedTranscriptMeta?.isDialogicEligible);
 
@@ -239,10 +286,13 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
               <ScrollArea className="h-[480px] pr-2">
                 <div className="space-y-2">
                   {folderGroups.map((group) => (
-                    <div key={group.folderName} className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 px-1">
+                    <div key={group.folderName} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2">
+                      <div className="flex items-center justify-between px-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                         {group.folderName}
-                      </p>
+                        </p>
+                        <p className="text-[10px] text-slate-400">student folder</p>
+                      </div>
                       {group.transcripts.map((item) => (
                         <button
                           key={item.id}
@@ -259,9 +309,22 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
                               <div className="mt-1 flex items-center gap-2">
-                                {item.conversationTag && (
+                                {item.name.toLowerCase().includes("conv") && (
                                   <span className="text-[10px] font-semibold uppercase tracking-wide rounded bg-blue-100 px-1.5 py-0.5 text-blue-800">
-                                    {item.conversationTag}
+                                    {item.name.toLowerCase().includes("conv1")
+                                      ? "conv1"
+                                      : item.name.toLowerCase().includes("conv2")
+                                        ? "conv2"
+                                        : "conv"}
+                                  </span>
+                                )}
+                                {item.name.toLowerCase().includes("feedback") && (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wide rounded bg-emerald-100 px-1.5 py-0.5 text-emerald-800">
+                                    {item.name.toLowerCase().includes("feedback1")
+                                      ? "feedback1"
+                                      : item.name.toLowerCase().includes("feedback2")
+                                        ? "feedback2"
+                                        : "feedback"}
                                   </span>
                                 )}
                                 {!item.isDialogicEligible && (
@@ -319,11 +382,6 @@ export default function TestFeedback({ username, onStartDialogue }: TestFeedback
             </div>
           </CardHeader>
           <CardContent>
-            {!canStartDialogic && selectedTranscript && (
-              <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                This file is not conv1/conv2. You can read it, but dialogic feedback is enabled only for conv1 or conv2 transcripts.
-              </div>
-            )}
             {isLoadingTranscript ? (
               <p className="text-sm text-slate-500">Loading transcript content...</p>
             ) : selectedTranscript ? (
