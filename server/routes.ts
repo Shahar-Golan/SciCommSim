@@ -23,6 +23,50 @@ function normalizeDriveFolderId(input: string): string {
   return match?.[1] || input;
 }
 
+function buildDriveFolderCandidates(input: string | undefined): string[] {
+  const fromEnv = (input || "")
+    .split(",")
+    .map((item) => normalizeDriveFolderId(item.trim()))
+    .filter(Boolean);
+
+  const defaults = [
+    "1gW14om5G13M9dlXbUbTrI9XU_UoRaQtH", // New mission folder
+    "1Ed-P__AoqI5ZK3l2WR10Bwa1ljULaXw0", // Previous working folder
+  ];
+
+  const seen = new Set<string>();
+  const candidates: string[] = [];
+
+  for (const id of [...fromEnv, ...defaults]) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      candidates.push(id);
+    }
+  }
+
+  return candidates;
+}
+
+async function resolveAccessibleDriveFolder(drive: any, candidates: string[]): Promise<string> {
+  for (const folderId of candidates) {
+    try {
+      await drive.files.get({
+        fileId: folderId,
+        fields: "id,name",
+        supportsAllDrives: true,
+      });
+      return folderId;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("File not found")) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error(`No accessible Drive folder found in candidates: ${candidates.join(", ")}`);
+}
+
 function createGoogleClients() {
   const credentialsFile = process.env.GOOGLE_CREDENTIALS_FILE || "google-credentials.json";
   const resolvedCredentialsPath = path.resolve(process.cwd(), credentialsFile);
@@ -48,6 +92,8 @@ type TranscriptListItem = {
   folderPath: string;
   sessionFolder: string;
   studentNumber?: number;
+  conversationTag?: "conv1" | "conv2";
+  isDialogicEligible: boolean;
 };
 
 type TranscriptFolderGroup = {
@@ -63,6 +109,23 @@ function extractStudentNumber(fileName: string): number | undefined {
 
   const value = Number(match[1]);
   return Number.isFinite(value) ? value : undefined;
+}
+
+function extractConversationTag(fileName: string): "conv1" | "conv2" | undefined {
+  const normalized = fileName.toLowerCase();
+  if (/\bconv\s*[_-]?1\b/.test(normalized)) {
+    return "conv1";
+  }
+
+  if (/\bconv\s*[_-]?2\b/.test(normalized)) {
+    return "conv2";
+  }
+
+  return undefined;
+}
+
+function isDialogicEligibleTranscriptName(fileName: string): boolean {
+  return Boolean(extractConversationTag(fileName));
 }
 
 async function listFolderChildren(drive: any, folderId: string) {
@@ -106,7 +169,8 @@ async function collectDocsRecursively(
     }
 
     if (item.mimeType === "application/vnd.google-apps.document") {
-      const sessionFolder = folderPath.split("/")[0] || "Root";
+      const conversationTag = extractConversationTag(item.name);
+      const sessionFolder = folderPath || "Root";
       acc.push({
         id: item.id,
         name: item.name,
@@ -115,6 +179,8 @@ async function collectDocsRecursively(
         folderPath,
         sessionFolder,
         studentNumber: extractStudentNumber(item.name),
+        conversationTag,
+        isDialogicEligible: Boolean(conversationTag),
       });
     }
   }
@@ -285,16 +351,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "User is not approved for test feedback access." });
       }
 
-      const folderInput = process.env.GOOGLE_DRIVE_FOLDER_ID || "1Ed-P__AoqI5ZK3l2WR10Bwa1ljULaXw0";
-      const folderId = normalizeDriveFolderId(folderInput);
+      const folderCandidates = buildDriveFolderCandidates(process.env.GOOGLE_DRIVE_FOLDER_ID);
       const { drive } = createGoogleClients();
 
-      // Confirm root folder is visible to the service account before traversing.
-      await drive.files.get({
-        fileId: folderId,
-        fields: "id,name",
-        supportsAllDrives: true,
-      });
+      const folderId = await resolveAccessibleDriveFolder(drive, folderCandidates);
 
       const transcripts: TranscriptListItem[] = [];
       await collectDocsRecursively(drive, folderId, "", transcripts);
@@ -303,6 +363,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const folderCompare = a.sessionFolder.localeCompare(b.sessionFolder);
         if (folderCompare !== 0) {
           return folderCompare;
+        }
+
+        if (a.conversationTag && b.conversationTag && a.conversationTag !== b.conversationTag) {
+          return a.conversationTag.localeCompare(b.conversationTag);
+        }
+
+        if (a.conversationTag && !b.conversationTag) {
+          return -1;
+        }
+
+        if (!a.conversationTag && b.conversationTag) {
+          return 1;
         }
 
         const aStudent = a.studentNumber ?? Number.MAX_SAFE_INTEGER;
@@ -330,9 +402,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to list Google Docs transcripts:", error instanceof Error ? error.message : String(error));
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("File not found")) {
+      if (message.includes("File not found") || message.includes("No accessible Drive folder found")) {
         return res.status(404).json({
-          message: "Drive folder not found for this service account. Share the folder with drive-reader@scicommsim.iam.gserviceaccount.com.",
+          message: "Drive folder not found for this service account. Share the target folder with drive-reader@scicommsim.iam.gserviceaccount.com or set GOOGLE_DRIVE_FOLDER_ID to an accessible folder id.",
         });
       }
 
@@ -374,6 +446,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to read Google Doc transcript:", error instanceof Error ? error.message : String(error));
       res.status(500).json({ message: "Failed to read transcript document." });
+    }
+  });
+
+  // Mission 4: Generate feedback from test transcript (approved users only)
+  app.post("/api/test-feedback/generate-feedback", async (req, res) => {
+    try {
+      const username = String(req.headers["x-test-feedback-username"] || "").trim();
+      if (!username) {
+        return res.status(401).json({ message: "Missing approved user context." });
+      }
+
+      const approvedUser = await storage.getTestFeedbackAccessUserByUsername(username);
+      if (!approvedUser) {
+        return res.status(403).json({ message: "User is not approved for test feedback access." });
+      }
+
+      const { transcriptContent, transcriptName } = req.body;
+      if (!transcriptContent || typeof transcriptContent !== "string") {
+        return res.status(400).json({ message: "transcriptContent is required and must be a string" });
+      }
+
+      if (!transcriptName || typeof transcriptName !== "string") {
+        return res.status(400).json({ message: "transcriptName is required and must be a string" });
+      }
+
+      if (!isDialogicEligibleTranscriptName(transcriptName)) {
+        return res.status(400).json({
+          message: "Dialogic feedback can be started only for conv1 or conv2 transcripts.",
+        });
+      }
+
+      // Parse transcript text into messages
+      // Format: "Ayelet: message\nstudent: message\n..."
+      const lines = transcriptContent.split(/\r?\n/).filter(line => line.trim());
+      const messages: Array<{ role: 'student' | 'ai'; content: string; timestamp: string }> = [];
+
+      for (const line of lines) {
+        const match = line.match(/^(\s*)(Ayelet|student)(\s*:\s*)(.*)$/i);
+        if (match) {
+          const [, , speaker, , content] = match;
+          const role = speaker.toLowerCase() === 'ayelet' ? 'ai' : 'student';
+          const timestamp = new Date().toISOString();
+          
+          if (content.trim()) {
+            messages.push({ role, content: content.trim(), timestamp });
+          }
+        }
+      }
+
+      if (messages.length === 0) {
+        return res.status(400).json({ message: "No student or Ayelet messages found in transcript" });
+      }
+
+      console.log("Generating feedback for", messages.length, "messages");
+      const feedbackData = await generateFeedback(messages);
+
+      res.json({
+        feedbackQueue: feedbackData.feedback_queue,
+        strengths: feedbackData.strengths,
+        improvements: feedbackData.improvements,
+        messageCount: messages.length,
+        conversationTag: extractConversationTag(transcriptName),
+      });
+    } catch (error) {
+      console.error("Test feedback generation error:", error instanceof Error ? error.message : String(error));
+      res.status(500).json({ message: "Failed to generate feedback from transcript" });
     }
   });
 

@@ -8,6 +8,15 @@ type DriveFile = {
   mimeType?: string | null;
 };
 
+type StructureCounters = {
+  folders: number;
+  docs: number;
+  files: number;
+  conv1Docs: number;
+  conv2Docs: number;
+  nonDialogicDocs: number;
+};
+
 function normalizeDriveFolderId(input: string): string {
   const match = input.match(/folders\/([a-zA-Z0-9_-]+)/);
   return match?.[1] || input;
@@ -50,7 +59,14 @@ async function printTree(
   drive: ReturnType<typeof google.drive>,
   folderId: string,
   depth = 0,
-  counters = { folders: 0, docs: 0, files: 0 },
+  counters: StructureCounters = {
+    folders: 0,
+    docs: 0,
+    files: 0,
+    conv1Docs: 0,
+    conv2Docs: 0,
+    nonDialogicDocs: 0,
+  },
 ): Promise<void> {
   const children = await listChildren(drive, folderId);
 
@@ -79,7 +95,20 @@ async function printTree(
 
     if (item.mimeType === "application/vnd.google-apps.document") {
       counters.docs += 1;
-      console.log(`${indent}[DOC] ${item.name} (${item.id})`);
+      const lowerName = (item.name || "").toLowerCase();
+      const isConv1 = /\bconv\s*[_-]?1\b/.test(lowerName);
+      const isConv2 = /\bconv\s*[_-]?2\b/.test(lowerName);
+
+      if (isConv1) {
+        counters.conv1Docs += 1;
+      } else if (isConv2) {
+        counters.conv2Docs += 1;
+      } else {
+        counters.nonDialogicDocs += 1;
+      }
+
+      const tag = isConv1 ? " [conv1]" : isConv2 ? " [conv2]" : " [other]";
+      console.log(`${indent}[DOC${tag}] ${item.name} (${item.id})`);
       continue;
     }
 
@@ -90,12 +119,17 @@ async function printTree(
     console.log("\nSummary:");
     console.log(`Folders: ${counters.folders}`);
     console.log(`Google Docs: ${counters.docs}`);
+    console.log(`conv1 docs: ${counters.conv1Docs}`);
+    console.log(`conv2 docs: ${counters.conv2Docs}`);
+    console.log(`non-dialogic docs: ${counters.nonDialogicDocs}`);
     console.log(`Total items: ${counters.files}`);
+    console.log("\nDialogic eligibility rule:");
+    console.log("Only files tagged as [conv1] or [conv2] should enable the Start Dialogic Feedback action.");
   }
 }
 
 async function main() {
-  const folderInput = process.env.GOOGLE_DRIVE_FOLDER_ID || "1Ed-P__AoqI5ZK3l2WR10Bwa1ljULaXw0";
+  const folderInput = process.env.GOOGLE_DRIVE_FOLDER_ID || "1gW14om5G13M9dlXbUbTrI9XU_UoRaQtH";
   const folderId = normalizeDriveFolderId(folderInput);
   const drive = createDriveClient();
 
