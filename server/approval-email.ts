@@ -31,6 +31,15 @@ function getTransporter() {
   return { transporter, from, gmailUser };
 }
 
+function getAppBaseUrl() {
+  const configured = process.env.APP_BASE_URL?.trim();
+  const renderExternal = process.env.RENDER_EXTERNAL_URL?.trim();
+  const fallbackLocal = `http://localhost:${process.env.PORT || "5000"}`;
+
+  const baseUrl = configured || renderExternal || fallbackLocal;
+  return baseUrl.replace(/\/+$/, "");
+}
+
 export async function sendApprovalEmail(input: SendApprovalEmailInput): Promise<boolean> {
   const config = getTransporter();
   if (!config) {
@@ -64,9 +73,12 @@ export async function sendAccessRequestNotificationToAdmin(input: SendAccessRequ
     return false;
   }
 
-  const baseUrl = process.env.APP_BASE_URL || "http://localhost:5000";
-  const approveUrl = `${baseUrl}/api/admin/access-requests/${input.requestId}/approve-from-email`;
-  const rejectUrl = `${baseUrl}/api/admin/access-requests/${input.requestId}/reject-from-email`;
+  const baseUrl = getAppBaseUrl();
+  const encodedRequestId = encodeURIComponent(input.requestId);
+  const approveUrl = `${baseUrl}/api/admin/access-requests/${encodedRequestId}/approve-from-email`;
+  const rejectUrl = `${baseUrl}/api/admin/access-requests/${encodedRequestId}/reject-from-email`;
+  const approveUrlQuery = `${baseUrl}/api/admin/access-requests/approve-from-email?requestId=${encodedRequestId}`;
+  const rejectUrlQuery = `${baseUrl}/api/admin/access-requests/reject-from-email?requestId=${encodedRequestId}`;
 
   try {
     await config.transporter.sendMail({
@@ -80,6 +92,9 @@ export async function sendAccessRequestNotificationToAdmin(input: SendAccessRequ
           <a href="${approveUrl}" style="display:inline-block;padding:10px 16px;background:#16a34a;color:#fff;text-decoration:none;border-radius:6px;margin-right:10px;">Approve</a>
           <a href="${rejectUrl}" style="display:inline-block;padding:10px 16px;background:#dc2626;color:#fff;text-decoration:none;border-radius:6px;">Reject</a>
         </p>
+        <p>If the buttons do not work in your email client, use these links:</p>
+        <p><a href="${approveUrlQuery}">Approve (fallback)</a></p>
+        <p><a href="${rejectUrlQuery}">Reject (fallback)</a></p>
       `,
     });
   } catch (error) {

@@ -243,6 +243,18 @@ function parseFeedbackGroup(input: unknown): FeedbackGroup {
   return input === "A" || input === "B" || input === "C" ? input : "C";
 }
 
+function parseAccessRequestId(paramsId: unknown, queryId: unknown): string | null {
+  const rawValue = typeof paramsId === "string" && paramsId.trim().length > 0
+    ? paramsId
+    : typeof queryId === "string"
+      ? queryId
+      : "";
+
+  const decoded = decodeURIComponent(rawValue).trim();
+  const parsed = z.string().uuid().safeParse(decoded);
+  return parsed.success ? parsed.data : null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default AI prompts
   await initializeDefaultPrompts();
@@ -1186,9 +1198,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approve request directly from email link
-  app.get("/api/admin/access-requests/:id/approve-from-email", async (req, res) => {
+  app.get(["/api/admin/access-requests/:id/approve-from-email", "/api/admin/access-requests/approve-from-email"], async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = parseAccessRequestId(req.params.id, req.query.requestId);
+      if (!id) {
+        return res.status(400).send("Invalid or missing request id.");
+      }
+
       const approved = await storage.approveTestFeedbackAccessRequest(id);
 
       if (!approved) {
@@ -1207,9 +1223,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reject request directly from email link
-  app.get("/api/admin/access-requests/:id/reject-from-email", async (req, res) => {
+  app.get(["/api/admin/access-requests/:id/reject-from-email", "/api/admin/access-requests/reject-from-email"], async (req, res) => {
     try {
-      const { id } = req.params;
+      const id = parseAccessRequestId(req.params.id, req.query.requestId);
+      if (!id) {
+        return res.status(400).send("Invalid or missing request id.");
+      }
+
       const rejected = await storage.rejectTestFeedbackAccessRequest(id);
 
       if (!rejected) {
