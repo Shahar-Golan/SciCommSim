@@ -223,7 +223,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
     }
 
     if (!canStartDialogic) {
-      setFeedbackError("Dialogic feedback can be started only for conv1 or conv2 files.");
+      setFeedbackError("Text feedback can be started only for conv1 or conv2 files.");
       return;
     }
 
@@ -250,8 +250,8 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
         conversationNumber: data.conversationNumber,
       });
     } catch (error) {
-      console.error("Failed to start dialogic feedback:", error);
-      setFeedbackError(`Failed to start dialogic feedback: ${error instanceof Error ? error.message : "Unknown error"}`);
+      console.error("Failed to start text feedback:", error);
+      setFeedbackError(`Failed to start text feedback: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGeneratingFeedback(false);
     }
@@ -376,7 +376,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
                     Preparing...
                   </>
                 ) : (
-                  "Start Dialogic Feedback"
+                  "Start Text Feedback"
                 )}
               </Button>
             </div>
