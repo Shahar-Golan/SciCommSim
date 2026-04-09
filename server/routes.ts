@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, initializeDefaultPrompts } from "./openai";
 import { generateLaypersonResponse } from "./openai-chat";
-import { generateFeedback, generateTeacherResponse, evaluateNextMove, buildTakeawaySummary } from "./openai-feedback";
+import { generateFeedback, generateTeacherResponse, evaluateNextMove, buildTakeawaySummary, type FeedbackGroup } from "./openai-feedback";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
@@ -284,6 +284,10 @@ function parseFeedbackPlannerState(summary: string | null): FeedbackPlannerState
       takeaway_sent: false,
     };
   }
+}
+
+function parseFeedbackGroup(input: unknown): FeedbackGroup {
+  return input === "A" || input === "B" || input === "C" ? input : "C";
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -899,6 +903,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Feedback API called with:", req.body);
     try {
       const { conversationId } = req.body;
+      const feedbackGroup = parseFeedbackGroup(req.body.feedbackGroup);
       
       // Fetch the conversation to get the actual transcript
       const conversation = await storage.getConversation(conversationId);
@@ -909,29 +914,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = conversation.transcript || [];
       console.log("Generating feedback for conversation:", conversationId, "with", messages?.length, "messages");
       
-      const feedbackData = await generateFeedback(messages);
+      const feedbackData = await generateFeedback(messages, feedbackGroup);
       console.log("Generated feedback data:", feedbackData);
-      
-      const feedback = await storage.createFeedback({
-        conversationId,
+
+      const payload = {
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
-      });
-
-      await storage.updateFeedback(feedback.id, {
         summary: JSON.stringify({
           feedback_queue: feedbackData.feedback_queue,
           initial_feedback_queue: feedbackData.feedback_queue,
           queue_cursor: 0,
           socratic_attempts: 0,
           takeaway_sent: false,
+          feedback_group: feedbackGroup,
+          intro_sent: false,
+          core_feedback_sent: false,
         }),
-      });
+        dialogueTranscript: [] as any,
+        dialogueCompleted: null,
+      };
+
+      const existingFeedback = await storage.getFeedbackByConversation(conversationId);
+      if (existingFeedback) {
+        await storage.updateFeedback(existingFeedback.id, payload);
+      } else {
+        await storage.createFeedback({
+          conversationId,
+          strengths: payload.strengths,
+          improvements: payload.improvements,
+          summary: payload.summary,
+        });
+      }
 
       const savedFeedback = await storage.getFeedbackByConversation(conversationId);
       
-      console.log("Saved feedback to database:", feedback);
-      res.json(savedFeedback || feedback);
+      console.log("Saved feedback to database:", savedFeedback);
+      res.json(savedFeedback);
     } catch (error) {
       console.error("Feedback generation error:", error);
       res.status(500).json({ message: "Failed to generate feedback" });
@@ -1005,7 +1023,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Feedback dialogue endpoints
   app.post("/api/feedback-dialogue/start", async (req, res) => {
     try {
-      const { feedbackId } = req.body;
+      const feedbackGroup = parseFeedbackGroup(req.body.feedbackGroup);
+      if (feedbackGroup !== "C") {
+        return res.status(400).json({ message: "Dialogue is only available for Group C" });
+      }
       
       // Get the feedback record to access strengths/improvements
       const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
@@ -1013,38 +1034,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
-      // Get the original conversation transcript
-      const conversation = await storage.getConversation(req.body.conversationId);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-
-      // Clean up the conversation - extract only role and content for teacher
-      const cleanConversation = (conversation.transcript || []).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
       const plannerStateAtStart = parseFeedbackPlannerState(feedback.summary || null);
-      const queueAtStart = plannerStateAtStart.feedback_queue;
-      const activeItemAtStart = queueAtStart[0] || null;
+      const summaryState = {
+        feedback_queue: plannerStateAtStart.feedback_queue,
+        initial_feedback_queue: plannerStateAtStart.initial_feedback_queue,
+        queue_cursor: plannerStateAtStart.queue_cursor,
+        socratic_attempts: plannerStateAtStart.socratic_attempts,
+        takeaway_sent: plannerStateAtStart.takeaway_sent,
+        feedback_group: "C",
+        intro_sent: true,
+        core_feedback_sent: false,
+      };
 
-      // Generate initial teacher message with feedback presentation
-      const initialMessage = await generateTeacherResponse(
-        [],
-        {
-          originalConversation: cleanConversation,
-        },
-        {
-          activeItem: activeItemAtStart,
-          plannerDecision: {
-            is_resolved: false,
-            user_pushback_detected: false,
-            next_strategy: "Ask clarifying question",
-            strategy_notes: "Open with one focused Socratic question tied to the active queue item.",
-          },
-        }
-      );
+      const initialMessage =
+        "Great job completing the first conversation. Before I share my feedback, I'd love to hear your perspective: how do you think it went? What do you feel you did well, and what would you like to improve for the next conversation?";
 
       const teacherMessage = {
         role: 'teacher' as const,
@@ -1055,6 +1058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update feedback with initial dialogue transcript
       await storage.updateFeedback(feedback.id, {
         dialogueTranscript: [teacherMessage] as any,
+        summary: JSON.stringify(summaryState),
       });
 
       res.json({
@@ -1069,7 +1073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/feedback-dialogue/respond", async (req, res) => {
     try {
-      const { feedbackId, message } = req.body;
+      const { message } = req.body;
       
       // Get current feedback with dialogue transcript
       const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
@@ -1097,6 +1101,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Step 2 planner: evaluate latest student turn against active queue item.
       const plannerState = parseFeedbackPlannerState(feedback.summary || null);
+      let rawSummary: any = {};
+      try {
+        rawSummary = feedback.summary ? JSON.parse(feedback.summary) : {};
+      } catch {
+        rawSummary = {};
+      }
+      const introSent = Boolean(rawSummary?.intro_sent);
+      const coreFeedbackSent = Boolean(rawSummary?.core_feedback_sent);
       const currentQueue = plannerState.feedback_queue;
       const activeItem = currentQueue[0];
       let plannerDecision = null;
@@ -1104,6 +1116,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let nextSocraticAttempts = plannerState.socratic_attempts || 0;
       let takeawaySent = plannerState.takeaway_sent;
       let teacherResponse: string;
+
+      if (introSent && !coreFeedbackSent) {
+        const strengthsBlock = feedback.strengths?.trim() || "- Keep using audience-aware wording when possible.";
+        const improvementsBlock = feedback.improvements?.trim() || "- Focus on simplifying technical wording for a layperson.";
+
+        teacherResponse = [
+          "Thanks for sharing your reflection.",
+          "Here is feedback based on your conversation:",
+          "",
+          "What you did well:",
+          strengthsBlock,
+          "",
+          "Points for improvement:",
+          improvementsBlock,
+          "",
+          "Is there anything you’d like to ask, clarify, or explore further regarding the feedback I provided?",
+        ].join("\n");
+
+        const teacherMessage = {
+          role: 'teacher' as const,
+          content: teacherResponse,
+          timestamp: new Date().toISOString(),
+        };
+
+        await storage.updateFeedback(feedback.id, {
+          dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
+          summary: JSON.stringify({
+            feedback_queue: currentQueue,
+            initial_feedback_queue: plannerState.initial_feedback_queue,
+            queue_cursor: plannerState.queue_cursor,
+            socratic_attempts: plannerState.socratic_attempts,
+            takeaway_sent: plannerState.takeaway_sent,
+            feedback_group: "C",
+            intro_sent: true,
+            core_feedback_sent: true,
+          }),
+        });
+
+        return res.json({ response: teacherMessage });
+      }
 
       if (activeItem) {
         plannerDecision = await evaluateNextMove(
@@ -1140,6 +1192,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               queue_cursor: 0,
               socratic_attempts: nextSocraticAttempts,
               takeaway_sent: takeawaySent,
+              feedback_group: "C",
+              intro_sent: true,
+              core_feedback_sent: true,
             }),
           });
         } else {
@@ -1162,6 +1217,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               queue_cursor: 0,
               socratic_attempts: nextSocraticAttempts,
               takeaway_sent: takeawaySent,
+              feedback_group: "C",
+              intro_sent: true,
+              core_feedback_sent: true,
             }),
           });
         }
@@ -1176,6 +1234,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             queue_cursor: 0,
             socratic_attempts: 0,
             takeaway_sent: takeawaySent,
+            feedback_group: "C",
+            intro_sent: true,
+            core_feedback_sent: true,
           }),
         });
       } else {

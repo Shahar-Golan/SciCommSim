@@ -8,7 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Welcome from "@/pages/welcome";
 import Instructions from "@/pages/instructions";
 import Conversation from "@/pages/conversation";
-import FeedbackDialogue from "./pages/feedback-dialogue";
+import FeedbackRoot from "@/pages/feedback-root";
 import ReadyForRoundTwo from "@/pages/ready-for-round-two";
 import Survey from "@/pages/survey";
 import ThankYou from "@/pages/thank-you";
@@ -16,6 +16,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import AboutUs from "@/pages/about-us";
 import SessionSummary from "@/pages/session-summary";
 import TestFeedback from "@/pages/test-feedback";
+import FeedbackDialogue from "@/pages/feedback-dialogue";
 
 type AppState = 
   | "welcome" 
@@ -179,7 +180,7 @@ function App() {
       
       case "feedback1":
         return (
-          <FeedbackDialogue 
+          <FeedbackRoot
             conversationId={sessionData.conversation1Id!}
             conversationNumber={1}
             onComplete={handleFeedback1Next}
@@ -200,7 +201,7 @@ function App() {
       
       case "feedback2":
         return (
-          <FeedbackDialogue 
+          <FeedbackRoot
             conversationId={sessionData.conversation2Id!}
             conversationNumber={2}
             onComplete={handleFeedback2Next}

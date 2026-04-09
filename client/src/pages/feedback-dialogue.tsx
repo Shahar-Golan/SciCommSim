@@ -10,6 +10,7 @@ import type { FeedbackMessage } from "@shared/schema";
 interface FeedbackDialogueProps {
   conversationId: string;
   conversationNumber: number;
+  feedbackGroup?: "A" | "B" | "C";
   onComplete: () => void;
 }
 
@@ -25,6 +26,7 @@ type TeacherResponsePayload = {
 export default function FeedbackDialogue({
   conversationId,
   conversationNumber,
+  feedbackGroup = "C",
   onComplete,
 }: FeedbackDialogueProps) {
   const [messages, setMessages] = useState<FeedbackMessage[]>([]);
@@ -62,6 +64,7 @@ export default function FeedbackDialogue({
 
       const feedbackResponse = await apiRequest("POST", "/api/feedback", {
         conversationId,
+        feedbackGroup,
       });
 
       const feedbackData = await feedbackResponse.json();
@@ -69,6 +72,7 @@ export default function FeedbackDialogue({
       const dialogueResponse = await apiRequest("POST", "/api/feedback-dialogue/start", {
         conversationId,
         feedbackId: feedbackData.id,
+        feedbackGroup,
       });
 
       const result = (await dialogueResponse.json()) as InitialDialogueResponse;

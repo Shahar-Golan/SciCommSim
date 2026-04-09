@@ -15,6 +15,8 @@ export type FeedbackQueueItem = {
   issue_description: string;
 };
 
+export type FeedbackGroup = "A" | "B" | "C";
+
 export type NextStrategy = "Ask clarifying question" | "Challenge assumption" | "Move to next item" | "Direct Instruction";
 
 export type EvaluateNextMoveResult = {
@@ -24,12 +26,15 @@ export type EvaluateNextMoveResult = {
   strategy_notes: string;
 };
 
-function buildLegacyFeedbackStrings(queue: FeedbackQueueItem[]): { strengths: string; improvements: string } {
+function buildLegacyFeedbackStrings(
+  queue: FeedbackQueueItem[],
+  options: { includeQuotes: boolean }
+): { strengths: string; improvements: string } {
   const strengthsItems = queue.filter(item => item.type === "strength").slice(0, 2);
   const improvementItems = queue.filter(item => item.type !== "strength").slice(0, 2);
 
   const formatLine = (item: FeedbackQueueItem) => {
-    const quote = item.target_quote ? ` Quote: "${item.target_quote}".` : "";
+    const quote = options.includeQuotes && item.target_quote ? ` Quote: "${item.target_quote}".` : "";
     return `- ${item.concept}: ${item.issue_description}.${quote}`;
   };
 
@@ -186,7 +191,10 @@ You have the full conversation above. Keep the response concise and evidence-bas
   }
 }
 
-export async function generateFeedback(messages: Message[]): Promise<{
+export async function generateFeedback(
+  messages: Message[],
+  feedbackGroup: FeedbackGroup = "C"
+): Promise<{
   feedback_queue: FeedbackQueueItem[];
   strengths: string;
   improvements: string;
@@ -206,7 +214,9 @@ export async function generateFeedback(messages: Message[]): Promise<{
           issue_description: "No student turns were found, so the rubric analyzer cannot assess communication behavior yet",
         },
       ];
-      const legacy = buildLegacyFeedbackStrings(feedbackQueue);
+      const legacy = buildLegacyFeedbackStrings(feedbackQueue, {
+        includeQuotes: feedbackGroup !== "A",
+      });
       return {
         feedback_queue: feedbackQueue,
         strengths: legacy.strengths,
@@ -215,7 +225,7 @@ export async function generateFeedback(messages: Message[]): Promise<{
     }
     
     const feedbackPrompt = await storage.getAiPrompt("feedback_analysis");
-    const systemPrompt = feedbackPrompt?.prompt || `You are an offline science-communication rubric analyzer.
+    const baseSystemPrompt = feedbackPrompt?.prompt || `You are an offline science-communication rubric analyzer.
 
 Task:
 - Analyze the transcript and output prioritized actionable items only.
@@ -239,6 +249,19 @@ Output rules:
 }
 - Do not include markdown, prose outside JSON, or additional keys.
 - Include 3 to 6 items when enough evidence exists.`;
+
+    const groupSpecificRules =
+      feedbackGroup === "A"
+        ? `
+GROUP A RULES:
+- Keep issue_description concise and direct.
+- Do not include direct transcript quote text inside issue_description.`
+        : `
+GROUP ${feedbackGroup} RULES:
+- Ground each feedback item in a transcript quote.
+- Keep target_quote as an exact short quote from student speech.`;
+
+    const systemPrompt = `${baseSystemPrompt}${groupSpecificRules}`;
 
     const conversationText = messages.map(msg => 
       `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`
@@ -272,7 +295,9 @@ Output rules:
         ];
 
     const orderedQueue = orderFeedbackQueueSandwich(fallbackQueue);
-    const legacy = buildLegacyFeedbackStrings(orderedQueue);
+    const legacy = buildLegacyFeedbackStrings(orderedQueue, {
+      includeQuotes: feedbackGroup !== "A",
+    });
 
     return {
       feedback_queue: orderedQueue,
@@ -290,7 +315,9 @@ Output rules:
         issue_description: "Analysis model failed. Re-run feedback generation to produce actionable transcript-based items",
       },
     ];
-    const legacy = buildLegacyFeedbackStrings(feedbackQueue);
+    const legacy = buildLegacyFeedbackStrings(feedbackQueue, {
+      includeQuotes: feedbackGroup !== "A",
+    });
 
     return {
       feedback_queue: feedbackQueue,
