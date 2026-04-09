@@ -8,25 +8,20 @@ interface FeedbackGroupBProps {
   onNext: () => void;
 }
 
-type QueueItemWithQuote = {
-  target_quote?: string;
-};
-
 function extractReferences(feedback: Feedback): string[] {
-  try {
-    const parsed = feedback.summary ? JSON.parse(feedback.summary) : null;
-    const queue = Array.isArray(parsed?.initial_feedback_queue)
-      ? (parsed.initial_feedback_queue as QueueItemWithQuote[])
-      : [];
+  const quoteRegex = /"([^"]+)"/g;
+  const text = `${feedback.strengths || ""}\n${feedback.improvements || ""}`;
+  const quotes: string[] = [];
+  let match: RegExpExecArray | null;
 
-    const quotes = queue
-      .map((item) => (item.target_quote || "").trim())
-      .filter(Boolean);
-
-    return Array.from(new Set(quotes));
-  } catch {
-    return [];
+  while ((match = quoteRegex.exec(text)) !== null) {
+    const value = match[1]?.trim();
+    if (value) {
+      quotes.push(value);
+    }
   }
+
+  return Array.from(new Set(quotes));
 }
 
 export default function FeedbackGroupB({ feedback, conversationNumber, onNext }: FeedbackGroupBProps) {

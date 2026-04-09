@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, initializeDefaultPrompts } from "./openai";
 import { generateLaypersonResponse } from "./openai-chat";
-import { generateFeedback, generateTeacherResponse, evaluateNextMove, buildTakeawaySummary, type FeedbackGroup } from "./openai-feedback";
+import { generateFeedback, generateTeacherResponse, type FeedbackGroup } from "./openai-feedback.ts";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
@@ -238,53 +238,6 @@ const testFeedbackLoginSchema = z.object({
   email: z.string().trim().email().max(320),
   password: z.string().min(1),
 });
-
-type FeedbackQueueItem = {
-  priority: number;
-  type: "improvement" | "strength";
-  concept: string;
-  target_quote: string;
-  issue_description: string;
-};
-
-type FeedbackPlannerState = {
-  feedback_queue: FeedbackQueueItem[];
-  initial_feedback_queue: FeedbackQueueItem[];
-  queue_cursor: number;
-  socratic_attempts: number;
-  takeaway_sent: boolean;
-};
-
-function parseFeedbackPlannerState(summary: string | null): FeedbackPlannerState {
-  if (!summary) {
-    return {
-      feedback_queue: [],
-      initial_feedback_queue: [],
-      queue_cursor: 0,
-      socratic_attempts: 0,
-      takeaway_sent: false,
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(summary);
-    return {
-      feedback_queue: Array.isArray(parsed.feedback_queue) ? (parsed.feedback_queue as FeedbackQueueItem[]) : [],
-      initial_feedback_queue: Array.isArray(parsed.initial_feedback_queue) ? (parsed.initial_feedback_queue as FeedbackQueueItem[]) : [],
-      queue_cursor: typeof parsed.queue_cursor === "number" ? parsed.queue_cursor : 0,
-      socratic_attempts: typeof parsed.socratic_attempts === "number" ? parsed.socratic_attempts : 0,
-      takeaway_sent: Boolean(parsed.takeaway_sent),
-    };
-  } catch {
-    return {
-      feedback_queue: [],
-      initial_feedback_queue: [],
-      queue_cursor: 0,
-      socratic_attempts: 0,
-      takeaway_sent: false,
-    };
-  }
-}
 
 function parseFeedbackGroup(input: unknown): FeedbackGroup {
   return input === "A" || input === "B" || input === "C" ? input : "C";
@@ -524,7 +477,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const feedbackData = await generateFeedback(messages);
 
       res.json({
-        feedbackQueue: feedbackData.feedback_queue,
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
         messageCount: messages.length,
@@ -921,11 +873,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
         summary: JSON.stringify({
-          feedback_queue: feedbackData.feedback_queue,
-          initial_feedback_queue: feedbackData.feedback_queue,
-          queue_cursor: 0,
-          socratic_attempts: 0,
-          takeaway_sent: false,
           feedback_group: feedbackGroup,
           intro_sent: false,
           core_feedback_sent: false,
@@ -1034,13 +981,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
-      const plannerStateAtStart = parseFeedbackPlannerState(feedback.summary || null);
       const summaryState = {
-        feedback_queue: plannerStateAtStart.feedback_queue,
-        initial_feedback_queue: plannerStateAtStart.initial_feedback_queue,
-        queue_cursor: plannerStateAtStart.queue_cursor,
-        socratic_attempts: plannerStateAtStart.socratic_attempts,
-        takeaway_sent: plannerStateAtStart.takeaway_sent,
         feedback_group: "C",
         intro_sent: true,
         core_feedback_sent: false,
@@ -1099,8 +1040,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message
       ];
 
-      // Step 2 planner: evaluate latest student turn against active queue item.
-      const plannerState = parseFeedbackPlannerState(feedback.summary || null);
       let rawSummary: any = {};
       try {
         rawSummary = feedback.summary ? JSON.parse(feedback.summary) : {};
@@ -1109,12 +1048,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const introSent = Boolean(rawSummary?.intro_sent);
       const coreFeedbackSent = Boolean(rawSummary?.core_feedback_sent);
-      const currentQueue = plannerState.feedback_queue;
-      const activeItem = currentQueue[0];
-      let plannerDecision = null;
-      let executorItem = activeItem || null;
-      let nextSocraticAttempts = plannerState.socratic_attempts || 0;
-      let takeawaySent = plannerState.takeaway_sent;
       let teacherResponse: string;
 
       if (introSent && !coreFeedbackSent) {
@@ -1143,11 +1076,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateFeedback(feedback.id, {
           dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
           summary: JSON.stringify({
-            feedback_queue: currentQueue,
-            initial_feedback_queue: plannerState.initial_feedback_queue,
-            queue_cursor: plannerState.queue_cursor,
-            socratic_attempts: plannerState.socratic_attempts,
-            takeaway_sent: plannerState.takeaway_sent,
             feedback_group: "C",
             intro_sent: true,
             core_feedback_sent: true,
@@ -1157,100 +1085,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ response: teacherMessage });
       }
 
-      if (activeItem) {
-        plannerDecision = await evaluateNextMove(
-          updatedTranscript.map(m => ({ role: m.role, content: m.content })),
-          activeItem,
-          nextSocraticAttempts
-        );
-
-        if (plannerDecision.is_resolved) {
-          const nextQueue = currentQueue.slice(1);
-          executorItem = nextQueue[0] || null;
-          nextSocraticAttempts = 0;
-
-          if (nextQueue.length === 0 && !takeawaySent) {
-            teacherResponse = buildTakeawaySummary(plannerState.initial_feedback_queue);
-            takeawaySent = true;
-          } else {
-            teacherResponse = await generateTeacherResponse(
-              updatedTranscript.map(m => ({ role: m.role, content: m.content })),
-              {
-                originalConversation: cleanConversation,
-              },
-              {
-                activeItem: executorItem,
-                plannerDecision,
-              }
-            );
-          }
-
-          await storage.updateFeedback(feedback.id, {
-            summary: JSON.stringify({
-              feedback_queue: nextQueue,
-              initial_feedback_queue: plannerState.initial_feedback_queue,
-              queue_cursor: 0,
-              socratic_attempts: nextSocraticAttempts,
-              takeaway_sent: takeawaySent,
-              feedback_group: "C",
-              intro_sent: true,
-              core_feedback_sent: true,
-            }),
-          });
-        } else {
-          nextSocraticAttempts = Math.min(nextSocraticAttempts + 1, 3);
-          teacherResponse = await generateTeacherResponse(
-            updatedTranscript.map(m => ({ role: m.role, content: m.content })),
-            {
-              originalConversation: cleanConversation,
-            },
-            {
-              activeItem: executorItem,
-              plannerDecision,
-            }
-          );
-
-          await storage.updateFeedback(feedback.id, {
-            summary: JSON.stringify({
-              feedback_queue: currentQueue,
-              initial_feedback_queue: plannerState.initial_feedback_queue,
-              queue_cursor: 0,
-              socratic_attempts: nextSocraticAttempts,
-              takeaway_sent: takeawaySent,
-              feedback_group: "C",
-              intro_sent: true,
-              core_feedback_sent: true,
-            }),
-          });
+      teacherResponse = await generateTeacherResponse(
+        updatedTranscript.map(m => ({ role: m.role, content: m.content })),
+        {
+          originalConversation: cleanConversation,
         }
-      } else if (!takeawaySent) {
-        teacherResponse = buildTakeawaySummary(plannerState.initial_feedback_queue);
-        takeawaySent = true;
-
-        await storage.updateFeedback(feedback.id, {
-          summary: JSON.stringify({
-            feedback_queue: currentQueue,
-            initial_feedback_queue: plannerState.initial_feedback_queue,
-            queue_cursor: 0,
-            socratic_attempts: 0,
-            takeaway_sent: takeawaySent,
-            feedback_group: "C",
-            intro_sent: true,
-            core_feedback_sent: true,
-          }),
-        });
-      } else {
-        teacherResponse = await generateTeacherResponse(
-          updatedTranscript.map(m => ({ role: m.role, content: m.content })),
-          {
-            originalConversation: cleanConversation,
-          },
-          {
-            activeItem: null,
-            plannerDecision: null,
-          }
-        );
-      }
+      );
 
       const teacherMessage = {
         role: 'teacher' as const,
