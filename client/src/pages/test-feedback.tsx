@@ -3,6 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, ExternalLink, Loader2 } from "lucide-react";
+import type { Feedback } from "@shared/schema";
+import FeedbackDialogue from "./feedback-group-c";
+import FeedbackGroupA from "./feedback-group-a";
+import FeedbackGroupB from "./feedback-group-b";
 
 type TranscriptListItem = {
   id: string;
@@ -26,6 +30,13 @@ type TranscriptDetail = {
   title: string;
   content: string;
   webViewLink?: string | null;
+};
+
+type FeedbackGroup = "A" | "B" | "C";
+
+type BootstrappedConversation = {
+  conversationId: string;
+  conversationNumber: number;
 };
 
 interface TestFeedbackProps {
@@ -114,6 +125,7 @@ function sortTranscriptItems(transcripts: TranscriptListItem[]): TranscriptListI
 
 export default function TestFeedback({ email, onStartDialogue }: TestFeedbackProps) {
   const [transcripts, setTranscripts] = useState<TranscriptListItem[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<FeedbackGroup | null>(null);
   const [selectedDocId, setSelectedDocId] = useState<string>("");
   const [selectedTranscript, setSelectedTranscript] = useState<TranscriptDetail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(false);
@@ -121,6 +133,16 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
   const [isGeneratingFeedback, setIsGeneratingFeedback] = useState(false);
   const [feedbackError, setFeedbackError] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [bootstrappedConversation, setBootstrappedConversation] = useState<BootstrappedConversation | null>(null);
+  const [feedbackData, setFeedbackData] = useState<Feedback | null>(null);
+
+  const resetFeedbackFlow = () => {
+    setSelectedGroup(null);
+    setBootstrappedConversation(null);
+    setFeedbackData(null);
+    setFeedbackError("");
+    setIsGeneratingFeedback(false);
+  };
 
   useEffect(() => {
     const loadTranscripts = async () => {
@@ -153,6 +175,10 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
     if (email) {
       loadTranscripts();
     }
+  }, [email]);
+
+  useEffect(() => {
+    resetFeedbackFlow();
   }, [email]);
 
   useEffect(() => {
@@ -196,6 +222,8 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
     return transcripts.find((t) => t.id === selectedDocId);
   }, [selectedDocId, transcripts]);
 
+  const selectedGroupLabel = selectedGroup ? `Group ${selectedGroup}` : "";
+
   const folderGroups = useMemo(() => {
     const groups = new Map<string, TranscriptListItem[]>();
 
@@ -217,12 +245,17 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
   const canStartDialogic = Boolean(selectedTranscriptMeta?.isDialogicEligible);
 
   const handleStartFeedback = async () => {
+    if (!selectedGroup) {
+      setFeedbackError("Please choose a feedback group first.");
+      return;
+    }
+
     if (!selectedTranscript?.content) {
       setFeedbackError("Please select a transcript first");
       return;
     }
 
-    if (!canStartDialogic) {
+    if (selectedGroup === "C" && !canStartDialogic) {
       setFeedbackError("Text feedback can be started only for conv1 or conv2 files.");
       return;
     }
@@ -231,7 +264,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
     setFeedbackError("");
 
     try {
-      const response = await fetch("/api/test-feedback/start-dialogue", {
+      const bootstrapResponse = await fetch("/api/test-feedback/start-dialogue", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -244,11 +277,27 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
         credentials: "include",
       });
 
-      const data = await parseJsonOrThrow(response);
-      onStartDialogue({
-        conversationId: data.conversationId,
-        conversationNumber: data.conversationNumber,
+      const bootstrapData = (await parseJsonOrThrow(bootstrapResponse)) as BootstrappedConversation;
+      setBootstrappedConversation(bootstrapData);
+
+      if (selectedGroup === "C") {
+        return;
+      }
+
+      const feedbackResponse = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId: bootstrapData.conversationId,
+          feedbackGroup: selectedGroup,
+        }),
+        credentials: "include",
       });
+
+      const feedback = (await parseJsonOrThrow(feedbackResponse)) as Feedback;
+      setFeedbackData(feedback);
     } catch (error) {
       console.error("Failed to start text feedback:", error);
       setFeedbackError(`Failed to start text feedback: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -257,14 +306,84 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
     }
   };
 
+  if (bootstrappedConversation && selectedGroup === "C") {
+    return (
+      <FeedbackDialogue
+        conversationId={bootstrappedConversation.conversationId}
+        conversationNumber={bootstrappedConversation.conversationNumber}
+        feedbackGroup="C"
+        onComplete={resetFeedbackFlow}
+      />
+    );
+  }
+
+  if (bootstrappedConversation && feedbackData && selectedGroup === "A") {
+    return (
+      <FeedbackGroupA
+        feedback={feedbackData}
+        conversationNumber={bootstrappedConversation.conversationNumber}
+        onNext={resetFeedbackFlow}
+      />
+    );
+  }
+
+  if (bootstrappedConversation && feedbackData && selectedGroup === "B") {
+    return (
+      <FeedbackGroupB
+        feedback={feedbackData}
+        conversationNumber={bootstrappedConversation.conversationNumber}
+        onNext={resetFeedbackFlow}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-slate-800">Conversations Reader</h2>
+        <h2 className="text-3xl font-bold text-slate-800">Test Feedback</h2>
         <p className="text-slate-600 mt-1">
-          Read Google Docs Conversations directly from Drive.
+          First choose a feedback group, then select a transcript and launch the matching feedback page.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Choose Feedback Group</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              { group: "A" as const, label: "1", title: "Group A", description: "One-shot feedback without transcript quotes." },
+              { group: "B" as const, label: "2", title: "Group B", description: "One-shot feedback with transcript references." },
+              { group: "C" as const, label: "3", title: "Group C", description: "Dialogic feedback with coach chat." },
+            ].map((option) => {
+              const isSelected = selectedGroup === option.group;
+
+              return (
+                <button
+                  key={option.group}
+                  type="button"
+                  onClick={() => setSelectedGroup(option.group)}
+                  className={`rounded-xl border p-4 text-left transition-colors ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Option {option.label}</p>
+                      <h3 className="text-lg font-semibold text-slate-800">{option.title}</h3>
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600">{option.label}</div>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">{option.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {errorMessage && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -289,7 +408,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
                     <div key={group.folderName} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50/60 p-2">
                       <div className="flex items-center justify-between px-1">
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                        {group.folderName}
+                          {group.folderName}
                         </p>
                         <p className="text-[10px] text-slate-400">student folder</p>
                       </div>
@@ -366,7 +485,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
               )}
               <Button
                 onClick={handleStartFeedback}
-                disabled={isGeneratingFeedback || !selectedTranscript?.content || !canStartDialogic}
+                disabled={isGeneratingFeedback || !selectedGroup || !selectedTranscript?.content || (selectedGroup === "C" && !canStartDialogic)}
                 size="sm"
                 className="bg-blue-600 hover:bg-blue-700"
               >
@@ -376,7 +495,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
                     Preparing...
                   </>
                 ) : (
-                  "Start Text Feedback"
+                  selectedGroup ? `Start ${selectedGroupLabel} Feedback` : "Choose a group first"
                 )}
               </Button>
             </div>

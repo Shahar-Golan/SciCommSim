@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Feedback } from "@shared/schema";
-import FeedbackDialogue from "./feedback-dialogue";
+import FeedbackDialogue from "./feedback-group-c";
 import FeedbackGroupA from "./feedback-group-a";
 import FeedbackGroupB from "./feedback-group-b";
 

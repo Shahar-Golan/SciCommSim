@@ -15,8 +15,8 @@ import ThankYou from "@/pages/thank-you";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AboutUs from "@/pages/about-us";
 import SessionSummary from "@/pages/session-summary";
-import TestFeedback from "@/pages/test-feedback";
-import FeedbackDialogue from "@/pages/feedback-dialogue";
+import TestFeedback from "./pages/test-feedback";
+import FeedbackDialogue from "@/pages/feedback-group-c";
 
 type AppState = 
   | "welcome" 
