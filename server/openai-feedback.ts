@@ -14,14 +14,10 @@ type FeedbackAnalysisResult = {
   improvement_points: string[];
 };
 
-async function getFeedbackAnalysisPromptByGroup(group: FeedbackGroup): Promise<string> {
-  let promptName: string;
-  let fallbackPrompt: string;
-
-  switch (group) {
-    case "A":
-      promptName = "feedback_analysis_group_a";
-      fallbackPrompt = `You are a science communication feedback coach.
+const FEEDBACK_ANALYSIS_PROMPT_CONFIG: Record<FeedbackGroup, { name: string; prompt: string }> = {
+  A: {
+    name: "feedback_analysis_group_a",
+    prompt: `You are a science communication feedback coach.
 Generate feedback for Group A.
 Group A requirements:
 - No references or quotes from transcript.
@@ -32,12 +28,11 @@ Return strict JSON only with this schema:
 {
   "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
-}`;
-      break;
-
-    case "B":
-      promptName = "feedback_analysis_group_b";
-      fallbackPrompt = `You are a science communication feedback coach.
+}`,
+  },
+  B: {
+    name: "feedback_analysis_group_b",
+    prompt: `You are a science communication feedback coach.
 Generate feedback for Group B.
 Group B requirements:
 - Include references to what the student said in each point.
@@ -49,13 +44,11 @@ Return strict JSON only with this schema:
 {
   "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
-}`;
-      break;
-
-    case "C":
-    default:
-      promptName = "feedback_analysis_group_c";
-      fallbackPrompt = `You are a science communication feedback coach.
+}`,
+  },
+  C: {
+    name: "feedback_analysis_group_c",
+    prompt: `You are a science communication feedback coach.
 Generate feedback for Group C.
 Group C requirements:
 - Include references to what the student said in each point.
@@ -67,12 +60,14 @@ Return strict JSON only with this schema:
 {
   "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
-}`;
-      break;
-  }
+}`,
+  },
+};
 
-  const prompt = await storage.getAiPrompt(promptName);
-  return prompt?.prompt || fallbackPrompt;
+async function getFeedbackAnalysisPromptByGroup(group: FeedbackGroup): Promise<string> {
+  const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group] || FEEDBACK_ANALYSIS_PROMPT_CONFIG.C;
+  const prompt = await storage.getAiPrompt(config.name);
+  return prompt?.prompt || config.prompt;
 }
 
 function normalizePoints(points: unknown, requiredCount: number, fallbackPrefix: string): string[] {
@@ -211,53 +206,15 @@ export async function generateFeedback(
 // Initialize feedback prompts
 export async function initializeFeedbackPrompts() {
   try {
-    await storage.upsertAiPrompt({
-      name: "feedback_analysis_group_a",
-      prompt: `You are a science communication feedback coach.
-Generate Group A feedback.
-Rules:
-- Do not include transcript references or quotes.
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Focus only on communication to a layperson.
-- Keep each point one concise sentence.
-Return strict JSON only:
-{
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
-}`,
-    });
-
-    await storage.upsertAiPrompt({
-      name: "feedback_analysis_group_b",
-      prompt: `You are a science communication feedback coach.
-Generate Group B feedback.
-Rules:
-- Include transcript-based references in points (short quote snippets when possible).
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Focus only on communication to a layperson.
-- Keep each point one concise sentence.
-Return strict JSON only:
-{
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
-}`,
-    });
-
-    await storage.upsertAiPrompt({
-      name: "feedback_analysis_group_c",
-      prompt: `You are a science communication feedback coach.
-Generate Group C feedback for later written dialogue.
-Rules:
-- Include transcript-based references in points (short quote snippets when possible).
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Focus only on communication to a layperson.
-- Keep each point one concise sentence.
-Return strict JSON only:
-{
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
-}`,
-    });
+    await Promise.all(
+      (Object.keys(FEEDBACK_ANALYSIS_PROMPT_CONFIG) as FeedbackGroup[]).map((group) => {
+        const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group];
+        return storage.upsertAiPrompt({
+          name: config.name,
+          prompt: config.prompt,
+        });
+      }),
+    );
   } catch (error) {
     console.error("Failed to initialize feedback prompts:", error);
   }

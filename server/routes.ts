@@ -4,11 +4,12 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, initializeDefaultPrompts } from "./openai";
 import { generateLaypersonResponse } from "./openai-chat";
-import { generateFeedback, generateTeacherResponse, type FeedbackGroup } from "./openai-feedback.ts";
+import { generateFeedback, type FeedbackGroup } from "./openai-feedback.ts";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
 import { runProsodyPipelineForConversation } from "./prosody-pipeline";
+import { registerFeedbackGroupCRoutes } from "./feedback-group-c-routes";
 import { hashPassword, verifyPassword } from "./password-utils";
 import { sendApprovalEmail, sendAccessRequestNotificationToAdmin } from "./approval-email";
 import { google } from "googleapis";
@@ -979,172 +980,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Feedback dialogue endpoints
-  app.post("/api/feedback-dialogue/start", async (req, res) => {
-    try {
-      const feedbackGroup = parseFeedbackGroup(req.body.feedbackGroup);
-      if (feedbackGroup !== "C") {
-        return res.status(400).json({ message: "Dialogue is only available for Group C" });
-      }
-      
-      // Get the feedback record to access strengths/improvements
-      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
-      if (!feedback) {
-        return res.status(404).json({ message: "Feedback not found" });
-      }
-
-      const summaryState = {
-        feedback_group: "C",
-        intro_sent: true,
-        core_feedback_sent: false,
-      };
-
-      const initialMessage =
-        "Great job completing the first conversation. Before I share my feedback, I'd love to hear your perspective: how do you think it went? What do you feel you did well, and what would you like to improve for the next conversation?";
-
-      const teacherMessage = {
-        role: 'teacher' as const,
-        content: initialMessage,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Update feedback with initial dialogue transcript
-      await storage.updateFeedback(feedback.id, {
-        dialogueTranscript: [teacherMessage] as any,
-        summary: JSON.stringify(summaryState),
-      });
-
-      res.json({
-        message: teacherMessage,
-        feedbackId: feedback.id,
-      });
-    } catch (error) {
-      console.error("Failed to start feedback dialogue:", error);
-      res.status(500).json({ message: "Failed to start feedback dialogue" });
-    }
-  });
-
-  app.post("/api/feedback-dialogue/respond", async (req, res) => {
-    try {
-      const { message } = req.body;
-      
-      // Get current feedback with dialogue transcript
-      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
-      if (!feedback) {
-        return res.status(404).json({ message: "Feedback not found" });
-      }
-
-      // Get the original conversation transcript
-      const conversation = await storage.getConversation(req.body.conversationId);
-      if (!conversation) {
-        return res.status(404).json({ message: "Conversation not found" });
-      }
-
-      // Clean up the conversation - extract only role and content for teacher
-      const cleanConversation = (conversation.transcript || []).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      // Add student message to transcript
-      const updatedTranscript = [
-        ...(feedback.dialogueTranscript || []),
-        message
-      ];
-
-      let rawSummary: any = {};
-      try {
-        rawSummary = feedback.summary ? JSON.parse(feedback.summary) : {};
-      } catch {
-        rawSummary = {};
-      }
-      const introSent = Boolean(rawSummary?.intro_sent);
-      const coreFeedbackSent = Boolean(rawSummary?.core_feedback_sent);
-      let teacherResponse: string;
-
-      if (introSent && !coreFeedbackSent) {
-        const strengthsBlock = feedback.strengths?.trim() || "- Keep using audience-aware wording when possible.";
-        const improvementsBlock = feedback.improvements?.trim() || "- Focus on simplifying technical wording for a layperson.";
-
-        teacherResponse = [
-          "Thanks for sharing your reflection.",
-          "Here is feedback based on your conversation:",
-          "",
-          "What you did well:",
-          strengthsBlock,
-          "",
-          "Points for improvement:",
-          improvementsBlock,
-          "",
-          "Is there anything you’d like to ask, clarify, or explore further regarding the feedback I provided?",
-        ].join("\n");
-
-        const teacherMessage = {
-          role: 'teacher' as const,
-          content: teacherResponse,
-          timestamp: new Date().toISOString(),
-        };
-
-        await storage.updateFeedback(feedback.id, {
-          dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
-          summary: JSON.stringify({
-            feedback_group: "C",
-            intro_sent: true,
-            core_feedback_sent: true,
-          }),
-        });
-
-        return res.json({ response: teacherMessage });
-      }
-
-      teacherResponse = await generateTeacherResponse(
-        updatedTranscript.map(m => ({ role: m.role, content: m.content })),
-        {
-          originalConversation: cleanConversation,
-        }
-      );
-
-      const teacherMessage = {
-        role: 'teacher' as const,
-        content: teacherResponse,
-        timestamp: new Date().toISOString(),
-      };
-
-      // Update feedback with new messages
-      await storage.updateFeedback(feedback.id, {
-        dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
-      });
-
-      res.json({
-        response: teacherMessage,
-      });
-    } catch (error) {
-      console.error("Failed to generate teacher response:", error);
-      res.status(500).json({ message: "Failed to generate teacher response" });
-    }
-  });
-
-  app.post("/api/feedback-dialogue/complete", async (req, res) => {
-    try {
-      const { feedbackId } = req.body;
-      
-      // Get current feedback
-      const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
-      if (!feedback) {
-        return res.status(404).json({ message: "Feedback not found" });
-      }
-
-      // Mark dialogue as completed
-      await storage.updateFeedback(feedback.id, {
-        dialogueCompleted: new Date(),
-      });
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Failed to complete feedback dialogue:", error);
-      res.status(500).json({ message: "Failed to complete feedback dialogue" });
-    }
-  });
+  registerFeedbackGroupCRoutes(app);
 
   // Admin routes
   app.get("/api/admin/sessions", async (req, res) => {
