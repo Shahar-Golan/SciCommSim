@@ -162,8 +162,8 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
         .map((msg) => `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`)
         .join("\n");
 
-      const systemPrompt = `You are an empathetic, insightful communications teacher reviewing a completed exercise with your student.
-Your goal is to guide the student through their feedback naturally and conversationally. Do NOT list all feedback at once. Discuss one or two points at a time, ask open-ended questions, and prompt the student to reflect on how they might apply this advice.
+      const systemPrompt = `You are an insightful communications teacher reviewing a completed exercise with your student.
+Your goal is to guide the student through their feedback naturally and conversationally. Do NOT list all feedback at once. Discuss one or two points at a time, and prompt the student to reflect on how they might apply this advice.
 
 Here is the student's feedback to cover during this session:
 Strengths to preserve:
