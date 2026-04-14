@@ -1,4 +1,6 @@
 import OpenAI from "openai";
+import fs from "node:fs";
+import path from "node:path";
 import { storage } from "./storage";
 import type { Message } from "@shared/schema";
 
@@ -14,16 +16,22 @@ type FeedbackAnalysisResult = {
   improvement_points: string[];
 };
 
+function loadPromptFile(fileName: string): string {
+  return fs.readFileSync(path.resolve(process.cwd(), "attached_assets", fileName), "utf8").trim();
+}
+
+const PRODIGY_FEEDBACK_GUIDANCE = loadPromptFile("Feedback_Prompt.txt");
+
 const FEEDBACK_ANALYSIS_PROMPT_CONFIG: Record<FeedbackGroup, { name: string; prompt: string }> = {
   A: {
     name: "feedback_analysis_group_a",
-    prompt: `You are a science communication feedback coach.
-Generate feedback for Group A.
-Group A requirements:
+    prompt: `${PRODIGY_FEEDBACK_GUIDANCE}
+
+You are a science communication feedback coach.
+requirements:
 - No references or quotes from transcript.
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Each point must be one concise sentence.
-- Focus on communication to a layperson (clarity, wording, pacing, audience engagement).
+- Output exactly 2 preserve points and exactly 3 improvement points.
+- Focus on Prodigy-based feedback for layperson communication.
 Return strict JSON only with this schema:
 {
   "preserve_points": ["...", "..."],
@@ -32,14 +40,16 @@ Return strict JSON only with this schema:
   },
   B: {
     name: "feedback_analysis_group_b",
-    prompt: `You are a science communication feedback coach.
+    prompt: `${PRODIGY_FEEDBACK_GUIDANCE}
+
+You are a science communication feedback coach.
 Generate feedback for Group B.
 Group B requirements:
-- Include references to what the student said in each point.
-- Use short inline quote snippets when possible.
+- You must include references or quotes from what the student said that made you provide a certain feedback.
+- Every preserve and improvement point must include one direct student quote in double quotes.
 - Output exactly 2 short preserve points and exactly 3 short improvement points.
 - Each point must be one concise sentence.
-- Focus on communication to a layperson (clarity, wording, pacing, audience engagement).
+- Focus on communication to a layperson (clarity, wording, audience engagement).
 Return strict JSON only with this schema:
 {
   "preserve_points": ["...", "..."],
@@ -83,6 +93,51 @@ function normalizePoints(points: unknown, requiredCount: number, fallbackPrefix:
 
 function formatPoints(points: string[]): string {
   return points.map((point) => `- ${point}`).join("\n");
+}
+
+function hasInlineQuote(text: string): boolean {
+  return /"[^"]{3,}"/.test(text);
+}
+
+function extractStudentQuoteSnippets(messages: Message[], limit = 8): string[] {
+  const snippets: string[] = [];
+
+  for (const msg of messages) {
+    if (msg.role !== "student") {
+      continue;
+    }
+
+    const parts = msg.content
+      .split(/[.!?\n]+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length >= 24 && part.length <= 160);
+
+    for (const part of parts) {
+      snippets.push(part.replace(/"/g, "'"));
+      if (snippets.length >= limit) {
+        return snippets;
+      }
+    }
+  }
+
+  return snippets;
+}
+
+function enforceGroupBQuotes(points: string[], quoteSnippets: string[]): string[] {
+  if (quoteSnippets.length === 0) {
+    return points;
+  }
+
+  let quoteIndex = 0;
+  return points.map((point) => {
+    if (hasInlineQuote(point)) {
+      return point;
+    }
+
+    const quote = quoteSnippets[quoteIndex % quoteSnippets.length];
+    quoteIndex += 1;
+    return `${point} Quote: "${quote}".`;
+  });
 }
 
 async function getFeedbackDialogueSystemPrompt(): Promise<string> {
@@ -177,16 +232,22 @@ export async function generateFeedback(
 
     const parsed = JSON.parse(response.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
 
-    const preservePoints = normalizePoints(
+    let preservePoints = normalizePoints(
       parsed.preserve_points,
       2,
       "Preserve: continue using audience-aware communication behavior"
     );
-    const improvementPoints = normalizePoints(
+    let improvementPoints = normalizePoints(
       parsed.improvement_points,
       3,
       "Improve: simplify and clarify your message for a lay audience"
     );
+
+    if (feedbackGroup === "B") {
+      const quoteSnippets = extractStudentQuoteSnippets(messages);
+      preservePoints = enforceGroupBQuotes(preservePoints, quoteSnippets);
+      improvementPoints = enforceGroupBQuotes(improvementPoints, quoteSnippets);
+    }
 
     return {
       strengths: formatPoints(preservePoints),
