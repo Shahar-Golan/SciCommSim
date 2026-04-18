@@ -65,9 +65,14 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
       return;
     }
 
+    const consent = consentChoice === "agree" ? "Y" : "N";
+
     setIsLoading(true);
     try {
-      const response = await apiRequest("POST", "/api/students", { name: name.trim() });
+      const response = await apiRequest("POST", "/api/students", {
+        name: name.trim(),
+        consent,
+      });
       const student = await response.json();
       onNext(student.id, student.name);
     } catch (error) {

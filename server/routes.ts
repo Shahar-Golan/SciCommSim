@@ -553,6 +553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const testStudent = await storage.createStudent({
         name: `Test Feedback - ${email}`,
+        consent: "Y",
       });
 
       const session = await storage.createTrainingSession({

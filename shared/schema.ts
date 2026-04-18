@@ -16,6 +16,7 @@ import { z } from "zod";
 export const students = pgTable("students", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  consent: varchar("consent", { length: 1 }).notNull().default("N"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -127,6 +128,7 @@ export const testFeedbackAccessUsers = pgTable("test_feedback_access_users", {
 // Insert schemas
 export const insertStudentSchema = createInsertSchema(students).pick({
   name: true,
+  consent: true,
 });
 
 export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).pick({
