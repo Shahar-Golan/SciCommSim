@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowRight, Bot, MessageSquare, Send, Sparkles, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, MessageSquare, Send, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +12,7 @@ interface FeedbackDialogueProps {
   conversationNumber: number;
   feedbackGroup?: "A" | "B" | "C";
   onComplete: () => void;
+  onBack?: () => void;
 }
 
 type InitialDialogueResponse = {
@@ -28,6 +29,7 @@ export default function FeedbackDialogue({
   conversationNumber,
   feedbackGroup = "C",
   onComplete,
+  onBack,
 }: FeedbackDialogueProps) {
   const [messages, setMessages] = useState<FeedbackMessage[]>([]);
   const [feedbackId, setFeedbackId] = useState<string>("");
@@ -190,6 +192,14 @@ export default function FeedbackDialogue({
         <Card className="max-w-2xl w-full border-slate-200 shadow-lg">
           <CardContent className="pt-8 pb-8">
             <div className="text-center space-y-6">
+              {onBack && (
+                <div className="flex justify-start">
+                  <Button type="button" variant="outline" onClick={onBack}>
+                    <ArrowLeft className="mr-2 w-4 h-4" />
+                    Back to Test Feedback
+                  </Button>
+                </div>
+              )}
               <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
                 <MessageSquare className="w-10 h-10 text-purple-600" />
               </div>
@@ -218,6 +228,15 @@ export default function FeedbackDialogue({
 
   return (
     <div className="space-y-6">
+      {onBack && (
+        <div>
+          <Button type="button" variant="outline" onClick={onBack}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            Back to Test Feedback
+          </Button>
+        </div>
+      )}
+
       <Card className="bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200 shadow-sm">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">

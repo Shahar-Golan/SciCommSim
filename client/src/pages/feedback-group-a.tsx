@@ -1,4 +1,4 @@
-import { RotateCcw, TrendingUp } from "lucide-react";
+import { ArrowLeft, RotateCcw, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Feedback } from "@shared/schema";
 
@@ -6,11 +6,21 @@ interface FeedbackGroupAProps {
   feedback: Feedback;
   conversationNumber: number;
   onNext: () => void;
+  onBack?: () => void;
 }
 
-export default function FeedbackGroupA({ feedback, conversationNumber, onNext }: FeedbackGroupAProps) {
+export default function FeedbackGroupA({ feedback, conversationNumber, onNext, onBack }: FeedbackGroupAProps) {
   return (
     <div className="space-y-8">
+      {onBack && (
+        <div>
+          <Button type="button" variant="outline" onClick={onBack}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            Back to Test Feedback
+          </Button>
+        </div>
+      )}
+
       <div className="text-center space-y-4">
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
           <TrendingUp className="text-white text-2xl w-8 h-8" />

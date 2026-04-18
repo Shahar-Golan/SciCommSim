@@ -313,6 +313,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
         conversationNumber={bootstrappedConversation.conversationNumber}
         feedbackGroup="C"
         onComplete={resetFeedbackFlow}
+        onBack={resetFeedbackFlow}
       />
     );
   }
@@ -323,6 +324,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
         feedback={feedbackData}
         conversationNumber={bootstrappedConversation.conversationNumber}
         onNext={resetFeedbackFlow}
+        onBack={resetFeedbackFlow}
       />
     );
   }
@@ -333,6 +335,7 @@ export default function TestFeedback({ email, onStartDialogue }: TestFeedbackPro
         feedback={feedbackData}
         conversationNumber={bootstrappedConversation.conversationNumber}
         onNext={resetFeedbackFlow}
+        onBack={resetFeedbackFlow}
       />
     );
   }

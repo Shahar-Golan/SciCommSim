@@ -476,6 +476,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
                 <li>Dr. Tzipora Rakedzon, Department of Humanities and Arts</li>
                 <li>Prof. Ayelet Baram-Tsabari, Faculty of Education in Science and Technology</li>
                 <li>Prof. Ofra Amir, Faculty of Data and Decision Sciences</li>
+                <li>Mr. Shahar Golan, Faculty of Data and Decision Sciences</li>
               </ul>
 
               <p className="mt-4">

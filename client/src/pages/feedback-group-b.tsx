@@ -1,4 +1,4 @@
-import { RotateCcw, Quote, TrendingUp } from "lucide-react";
+import { ArrowLeft, RotateCcw, Quote, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Feedback } from "@shared/schema";
 
@@ -6,6 +6,7 @@ interface FeedbackGroupBProps {
   feedback: Feedback;
   conversationNumber: number;
   onNext: () => void;
+  onBack?: () => void;
 }
 
 function extractReferences(feedback: Feedback): string[] {
@@ -24,11 +25,20 @@ function extractReferences(feedback: Feedback): string[] {
   return Array.from(new Set(quotes));
 }
 
-export default function FeedbackGroupB({ feedback, conversationNumber, onNext }: FeedbackGroupBProps) {
+export default function FeedbackGroupB({ feedback, conversationNumber, onNext, onBack }: FeedbackGroupBProps) {
   const references = extractReferences(feedback);
 
   return (
     <div className="space-y-8">
+      {onBack && (
+        <div>
+          <Button type="button" variant="outline" onClick={onBack}>
+            <ArrowLeft className="mr-2 w-4 h-4" />
+            Back to Test Feedback
+          </Button>
+        </div>
+      )}
+
       <div className="text-center space-y-4">
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
           <TrendingUp className="text-white text-2xl w-8 h-8" />
