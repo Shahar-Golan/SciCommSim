@@ -50,6 +50,10 @@ Generate feedback for Group B.
 Group B requirements:
 - You must include references or quotes from what the student said that made you provide a certain feedback.
 - Every preserve and improvement point must include one direct student quote in double quotes.
+- The quote must support your explanation, not replace it.
+- Each point must include at least one full explanatory clause outside the quote.
+- A point that is only a quote (or mostly a quote) is invalid.
+- Preferred structure for each bullet: observation + impact/reason + quote.
 - Quotes must be copied verbatim from the student's words (do not invent or paraphrase quotes).
 - Do not quote the layperson/interviewer.
 - Output exactly 2 short preserve points and exactly 3 short improvement points.
@@ -161,6 +165,41 @@ function groupBQuotesLookValid(points: string[], studentOnlyText: string): boole
   });
 }
 
+function stripQuotedSegments(text: string): string {
+  return text.replace(/"[^"]*"/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function groupBPointsHaveExplanations(points: string[]): boolean {
+  return points.every((point) => {
+    const nonQuoteWords = stripQuotedSegments(point)
+      .split(/\s+/)
+      .filter(Boolean);
+    return nonQuoteWords.length >= 6;
+  });
+}
+
+function forceGroupBExplanation(point: string, kind: "strength" | "improvement"): string {
+  const quote = extractInlineQuotes(point)[0];
+  if (!quote) {
+    return point;
+  }
+
+  if (kind === "strength") {
+    return `You used a clear communication move in "${quote}", which helps a layperson understand your message.`;
+  }
+
+  return `When you said "${quote}", the wording can confuse a layperson, so simplify and clarify this idea.`;
+}
+
+function enforceGroupBExplanations(points: string[], kind: "strength" | "improvement"): string[] {
+  return points.map((point) => {
+    if (groupBPointsHaveExplanations([point])) {
+      return point;
+    }
+    return forceGroupBExplanation(point, kind);
+  });
+}
+
 export async function generateFeedback(
   messages: Message[],
   feedbackGroup: FeedbackGroup = "C"
@@ -224,11 +263,14 @@ export async function generateFeedback(
         .map((msg) => msg.content)
         .join("\n\n");
 
-      const combined = [...preservePoints, ...improvementPoints];
-      if (!groupBQuotesLookValid(combined, studentOnlyText)) {
+      let combined = [...preservePoints, ...improvementPoints];
+      const hasValidQuotes = groupBQuotesLookValid(combined, studentOnlyText);
+      const hasExplanations = groupBPointsHaveExplanations(combined);
+
+      if (!hasValidQuotes || !hasExplanations) {
         const retry = await requestOnce(
           0,
-          "IMPORTANT: Every point must include exactly one direct STUDENT quote in double quotes copied verbatim from the transcript (do not quote the layperson, and do not invent quotes)."
+          "IMPORTANT: Every point must include exactly one direct STUDENT quote in double quotes copied verbatim from the transcript (do not quote the layperson, and do not invent quotes). Also include a clear explanatory clause outside the quote (observation + impact/reason). Quote-only bullets are invalid."
         );
         const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
         preservePoints = normalizePoints(
@@ -241,6 +283,16 @@ export async function generateFeedback(
           3,
           "Improve: simplify and clarify your message for a lay audience"
         );
+
+        combined = [...preservePoints, ...improvementPoints];
+        const retryHasValidQuotes = groupBQuotesLookValid(combined, studentOnlyText);
+        const retryHasExplanations = groupBPointsHaveExplanations(combined);
+
+        // Final guardrail: keep the quote but force a concise explanation around it.
+        if (retryHasValidQuotes && !retryHasExplanations) {
+          preservePoints = enforceGroupBExplanations(preservePoints, "strength");
+          improvementPoints = enforceGroupBExplanations(improvementPoints, "improvement");
+        }
       }
     }
 
