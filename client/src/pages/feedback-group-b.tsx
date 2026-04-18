@@ -9,6 +9,41 @@ interface FeedbackGroupBProps {
   onBack?: () => void;
 }
 
+function renderTextWithHighlightedQuotes(text: string) {
+  const nodes: Array<JSX.Element | string> = [];
+  const quoteRegex = /"([^"]+)"/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = quoteRegex.exec(text)) !== null) {
+    const matchIndex = match.index;
+    const fullMatch = match[0] || "";
+    const quoteText = match[1] || "";
+
+    if (matchIndex > lastIndex) {
+      nodes.push(text.slice(lastIndex, matchIndex));
+    }
+
+    nodes.push(
+      <span
+        key={`quote-${matchIndex}`}
+        className="inline-flex max-w-full items-baseline rounded-md border border-slate-300 bg-white/80 px-1.5 py-0.5 align-baseline italic"
+      >
+        <span className="break-words">“{quoteText}”</span>
+      </span>,
+    );
+
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
 function extractReferences(feedback: Feedback): string[] {
   const quoteRegex = /"([^"]+)"/g;
   const text = `${feedback.strengths || ""}\n${feedback.improvements || ""}`;
@@ -56,7 +91,7 @@ export default function FeedbackGroupB({ feedback, conversationNumber, onNext, o
               <div className="w-3 h-3 bg-green-500 rounded-full mr-3" />
               What You Did Well
             </h3>
-            <p className="text-green-700 leading-relaxed whitespace-pre-wrap">{feedback.strengths}</p>
+            <p className="text-green-700 leading-relaxed whitespace-pre-wrap">{renderTextWithHighlightedQuotes(feedback.strengths)}</p>
           </div>
         )}
 
@@ -66,7 +101,7 @@ export default function FeedbackGroupB({ feedback, conversationNumber, onNext, o
               <div className="w-3 h-3 bg-blue-500 rounded-full mr-3" />
               Points for Improvement
             </h3>
-            <p className="text-blue-700 leading-relaxed whitespace-pre-wrap">{feedback.improvements}</p>
+            <p className="text-blue-700 leading-relaxed whitespace-pre-wrap">{renderTextWithHighlightedQuotes(feedback.improvements)}</p>
           </div>
         )}
 

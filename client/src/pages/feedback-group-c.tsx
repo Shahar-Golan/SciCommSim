@@ -29,6 +29,41 @@ type FeedbackJsonPayload = {
   improvement_points: string[];
 };
 
+function renderTextWithHighlightedQuotes(text: string) {
+  const nodes: Array<JSX.Element | string> = [];
+  const quoteRegex = /"([^"]+)"/g;
+
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = quoteRegex.exec(text)) !== null) {
+    const matchIndex = match.index;
+    const fullMatch = match[0] || "";
+    const quoteText = match[1] || "";
+
+    if (matchIndex > lastIndex) {
+      nodes.push(text.slice(lastIndex, matchIndex));
+    }
+
+    nodes.push(
+      <span
+        key={`quote-${matchIndex}`}
+        className="inline-flex max-w-full items-baseline rounded-md border border-slate-300 bg-white/80 px-1.5 py-0.5 align-baseline italic"
+      >
+        <span className="break-words">“{quoteText}”</span>
+      </span>,
+    );
+
+    lastIndex = matchIndex + fullMatch.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
@@ -358,7 +393,7 @@ export default function FeedbackDialogue({
                                 <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
                                   {formattedFeedback.payload.preserve_points.map((point, pointIndex) => (
                                     <li key={`preserve-${pointIndex}`} className="leading-relaxed">
-                                      {point}
+                                      {renderTextWithHighlightedQuotes(point)}
                                     </li>
                                   ))}
                                 </ul>
@@ -369,7 +404,7 @@ export default function FeedbackDialogue({
                                 <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
                                   {formattedFeedback.payload.improvement_points.map((point, pointIndex) => (
                                     <li key={`improve-${pointIndex}`} className="leading-relaxed">
-                                      {point}
+                                      {renderTextWithHighlightedQuotes(point)}
                                     </li>
                                   ))}
                                 </ul>
