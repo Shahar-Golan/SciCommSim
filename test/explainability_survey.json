@@ -1,0 +1,60 @@
+{
+    "survey_title": "Agent Behavior Explanation Evaluation",
+    "scale": {
+        "min": 1,
+        "max": 7,
+        "labels": {
+            "1": "Strongly disagree",
+            "7": "Strongly agree"
+        }
+    },
+    "questions": [
+        {
+            "id": "q1_clarity",
+            "category": "Clarity",
+            "text": "The textual summary clearly explained the agent's actions and decisions shown in the demonstration video."
+        },
+        {
+            "id": "q2_understandable",
+            "category": "Understandable",
+            "text": "From the textual summary I understand how the agent's actions and decisions shown in the demonstration video."
+        },
+        {
+            "id": "q3_completeness",
+            "category": "Completeness",
+            "text": "The textual summary seemed complete in covering all aspects of the agent's actions and decisions in the demonstration video."
+        },
+        {
+            "id": "q4_satisfaction",
+            "category": "Satisfaction",
+            "text": "The textual summary is satisfying in capturing of the agent's behavior and decisions displayed in the demonstration video."
+        },
+        {
+            "id": "q5_useful",
+            "category": "Useful",
+            "text": "The textual summary is useful to my understanding of the agent's behavior and decisions displayed in the demonstration video."
+        },
+        {
+            "id": "q6_attention_check",
+            "category": "Attention Check",
+            "text": "For this statement, select the number 5.",
+            "is_attention_check": true,
+            "required_value": 5
+        },
+        {
+            "id": "q7_accuracy",
+            "category": "Accuracy",
+            "text": "The information in the textual summary accurately reflected the agent's behavior and decisions displayed in the demonstration video."
+        },
+        {
+            "id": "q8_improvement",
+            "category": "Improvement",
+            "text": "The textual summary provides additional insights about the agent's behavior that are not immediately apparent from watching the demonstration video alone."
+        },
+        {
+            "id": "q9_preference",
+            "category": "Preference",
+            "text": "I prefer receiving information about agent behavior through the textual summary rather than just watching the demonstration video."
+        }
+    ]
+}
