@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { Express } from "express";
 import { storage } from "./storage";
-import type { FeedbackGroup } from "./openai-feedback";
+import { parseFeedbackGroup, type FeedbackGroup } from "./openai-feedback";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
@@ -17,8 +17,20 @@ type GroupCState = {
   feedback_items: DialogueItem[];
 };
 
-function parseFeedbackGroup(input: unknown): FeedbackGroup {
-  return input === "A" || input === "B" || input === "C" ? input : "C";
+function getFeedbackGroupFromSummary(summary: string | null | undefined): FeedbackGroup | null {
+  if (!summary) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(summary) as { feedback_group?: unknown };
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+    return parseFeedbackGroup(parsed.feedback_group);
+  } catch {
+    return null;
+  }
 }
 
 function extractFeedbackItems(strengths: string | null | undefined, improvements: string | null | undefined): DialogueItem[] {
@@ -136,6 +148,11 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
         return res.status(404).json({ message: "Feedback not found" });
       }
 
+      const summaryGroup = getFeedbackGroupFromSummary(feedback.summary);
+      if (summaryGroup !== "C") {
+        return res.status(400).json({ message: "Dialogue is only available for Group C" });
+      }
+
       const conversation = await storage.getConversation(req.body.conversationId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -212,6 +229,11 @@ Keep your responses concise, conversational, and encouraging. Once all points ha
       const feedback = await storage.getFeedbackByConversation(req.body.conversationId);
       if (!feedback) {
         return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      const summaryGroup = getFeedbackGroupFromSummary(feedback.summary);
+      if (summaryGroup !== "C") {
+        return res.status(400).json({ message: "Dialogue is only available for Group C" });
       }
 
       await storage.updateFeedback(feedback.id, {

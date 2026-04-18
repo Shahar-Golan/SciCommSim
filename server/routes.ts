@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertStudentSchema, insertTrainingSessionSchema, insertConversationSchema } from "@shared/schema";
 import { transcribeAudio, generateSpeech, initializeDefaultPrompts } from "./openai";
 import { generateLaypersonResponse } from "./openai-chat";
-import { generateFeedback, type FeedbackGroup } from "./openai-feedback.ts";
+import { generateFeedback, parseFeedbackGroup, type FeedbackGroup } from "./openai-feedback.ts";
 import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
@@ -239,10 +239,6 @@ const testFeedbackLoginSchema = z.object({
   email: z.string().trim().email().max(320),
   password: z.string().min(1),
 });
-
-function parseFeedbackGroup(input: unknown): FeedbackGroup {
-  return input === "A" || input === "B" || input === "C" ? input : "C";
-}
 
 function parseAccessRequestId(paramsId: unknown, queryId: unknown): string | null {
   const rawValue = typeof paramsId === "string" && paramsId.trim().length > 0

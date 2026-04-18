@@ -1,0 +1,69 @@
+feedback for group B:
+
+Your Performance Feedback
+First conversation completed, with transcript-based references.
+
+What You Did Well
+- Sofia effectively used an analogy by explaining that 'the retina is the layer that's located in the back of the eye and its main focus is to allow us to see,' which helps clarify the retina's function. Quote: "So, as you said, my name is Sofia and I'm a PhD candidate at the Tamar Ben Yosef Lab in the Medicine Faculty here in Bad Galim".
+- She demonstrated empathy and respect by acknowledging the layperson's question about photoreceptors with 'Good question,' which encourages further engagement. Quote: "So, my lab is focusing on inherited retinal diseases".
+
+Points for Improvement
+- Sofia should avoid jargon like 'allele frequency' and instead use simpler terms or provide explanations to ensure clarity for a lay audience. Quote: "So, as you said, my name is Sofia and I'm a PhD candidate at the Tamar Ben Yosef Lab in the Medicine Faculty here in Bad Galim".
+- She could improve by providing more relatable examples or analogies when explaining complex concepts, such as 'phenotype,' to enhance understanding. Quote: "So, my lab is focusing on inherited retinal diseases".
+- Sofia should incorporate more personal details, such as what excites her about her research or any challenges she faces, to create a stronger emotional connection with the audience. Quote: "So, a little bit background, what is the retina".
+
+References from Your Conversation
+“So, as you said, my name is Sofia and I'm a PhD candidate at the Tamar Ben Yosef Lab in the Medicine Faculty here in Bad Galim”
+
+“So, my lab is focusing on inherited retinal diseases”
+
+“So, a little bit background, what is the retina”
+
+
+Original transcript:
+
+Ayelet: So, hello Sofia, can you tell me about your research? What do you do?
+
+student: Sure. So, as you said, my name is Sofia and I'm a PhD candidate at the Tamar Ben Yosef Lab in the Medicine Faculty here in Bad Galim. So, my lab is focusing on inherited retinal diseases. So, a little bit background, what is the retina? The retina is the layer that's located in the back of the eye and its main focus is to allow us to see. This is the layer that the photoreceptors are located in.
+
+Ayelet: What are photoreceptors?
+
+student: So, we have two kinds of photoreceptors. Each kind see and detects light in a different wavelength.
+
+student: So, we have the cones and the rods. The rods are more for like night vision. They're very sensitive for light. And the cones are responsible for the sharpness of our vision and the color vision.
+
+Ayelet: Which ones are the ones with the sharp of the vision?
+
+student: The cones?
+
+Ayelet: Okay.
+
+Ayelet: So, I have a problem with my cones?
+
+student: Not necessarily because the inherited retinal diseases, they're causing photoreceptors to die and people eventually like get blind.
+
+Ayelet: So, your work is to cure blindness?
+
+student: Yeah. This is one of the focuses of my lab. Okay. So, you're working on the retina. So, my main project is, so I will continue with the background. So, inherited retinal diseases as they name, they are inherited and they affect 14,000 people around the world with over 3,000 genes causing them. And one of the problems and the challenges in this field is that we have a lot of people who don't have 1000% of genetic...diagnosis.
+
+Ayelet: What do you mean? I don't understand.
+
+student: So, when a patient came to the clinic, the physician told him that he had inherited retinal diseases and then we tried to identify the genetic, the genetic, the genetic, the genetic causing gene. In which gene the mutation causes the disease. Because we have so much genes, we have different phenotypes. And when we know the causing gene, we can know the specific phenotype. What is phenotype? What do you mean? What is phenotype?
+
+Ayelet: Phenotype. Good question. Maybe you can tell me why you're doing it. I mean, are you trying to cure blindness? Are you trying to help people? Like, if I come with this disease and you find the gene, can you help me replace the gene? How can you help me?
+
+student: So, treatment is very limited because, as I told you, when we started the conversation, the photoreceptors died. Right. They can't, like, reproduce. So, when the photoreceptors died, they died. We can do nothing. There is one biological treatment that replaces one specific gene. But for the other genes...
+
+Ayelet: Yeah, you said there's like 300.
+
+student: It's a very, very big challenge. So, what I'm trying to do is trying to reanalyze a patient's data to solve them genetically, that they can know which mutated gene caused their disease. They can go to genetic counseling and manage their family, etc.
+
+Ayelet: Ah, so it's more for the next generation, not for this generation, in a way.
+
+student: Yes. Yes. In that way, we can reduce the allele frequency and reduce the disease in the population.
+
+Ayelet: What do people do? I mean, do they, like...
+
+Ayelet: discontinue a pregnancy because maybe at the age of 60, someone will get blind?
+
+student: Yes. Yes. Yes. IVF or genetic counseling to see if their partner has or hasn't this mutation also. In Israel, we have a high rate of inherited retinal diseases because of the... In some groups, we have a very strong founder's effect. In other groups, we have... a lot of relative marriage. So, we have like a very high percentage in Israel.

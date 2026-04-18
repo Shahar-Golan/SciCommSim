@@ -2,7 +2,6 @@ import OpenAI from "openai";
 import { initializeChatPrompts } from "./openai-chat";
 import { initializeFeedbackPrompts } from "./openai-feedback.ts";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key"
 });
