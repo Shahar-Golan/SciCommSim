@@ -866,6 +866,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { conversationId } = req.body;
       const feedbackGroup = parseFeedbackGroup(req.body.feedbackGroup);
+      const analysisGroup: FeedbackGroup = feedbackGroup === "C" ? "B" : feedbackGroup;
       
       // Fetch the conversation to get the actual transcript
       const conversation = await storage.getConversation(conversationId);
@@ -876,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = conversation.transcript || [];
       console.log("Generating feedback for conversation:", conversationId, "with", messages?.length, "messages");
       
-      const feedbackData = await generateFeedback(messages, feedbackGroup);
+      const feedbackData = await generateFeedback(messages, analysisGroup);
       console.log("Generated feedback data:", feedbackData);
 
       const payload = {

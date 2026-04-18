@@ -14,8 +14,47 @@ type DialogueItem = {
 
 type GroupCState = {
   feedback_group: "C";
-  feedback_items: DialogueItem[];
+  phase: "awaiting_reflection" | "feedback_delivered";
+  feedback_json: {
+    preserve_points: string[];
+    improvement_points: string[];
+  };
 };
+
+const GROUP_C_INITIAL_QUESTION = "how the conversation went";
+const GROUP_C_FEEDBACK_INTRO_MESSAGE = "interseting toughts', here is my feedback for you";
+
+function parseFormattedPointsBlock(value: string | null | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+
+  if (lines.length > 0) {
+    return lines;
+  }
+
+  return [value.trim()];
+}
+
+function normalizeRequiredPoints(points: string[], requiredCount: number, fallbackPrefix: string): string[] {
+  const trimmed = points
+    .map((point) => point.trim())
+    .filter(Boolean)
+    .slice(0, requiredCount);
+
+  while (trimmed.length < requiredCount) {
+    trimmed.push(`${fallbackPrefix} ${trimmed.length + 1}.`);
+  }
+
+  return trimmed;
+}
 
 function getFeedbackGroupFromSummary(summary: string | null | undefined): FeedbackGroup | null {
   if (!summary) {
@@ -33,32 +72,25 @@ function getFeedbackGroupFromSummary(summary: string | null | undefined): Feedba
   }
 }
 
-function extractFeedbackItems(strengths: string | null | undefined, improvements: string | null | undefined): DialogueItem[] {
-  const parseBlock = (value: string | null | undefined, kind: DialogueItem["kind"]) => {
-    if (!value) return [];
-    const lines = value
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => line.replace(/^-\s*/, "").trim())
-      .filter(Boolean)
-      .map((text) => ({ kind, text } as DialogueItem));
-
-    return lines.length > 0 ? lines : [{ kind, text: value.trim() }];
-  };
-
-  return [
-    ...parseBlock(strengths, "strength"),
-    ...parseBlock(improvements, "improvement"),
-  ];
-}
-
 function getDefaultGroupCState(feedback: { strengths?: string | null; improvements?: string | null }): GroupCState {
-  const feedbackItems = extractFeedbackItems(feedback.strengths, feedback.improvements);
+  const preserve = parseFormattedPointsBlock(feedback.strengths);
+  const improve = parseFormattedPointsBlock(feedback.improvements);
 
   return {
     feedback_group: "C",
-    feedback_items: feedbackItems,
+    phase: "awaiting_reflection",
+    feedback_json: {
+      preserve_points: normalizeRequiredPoints(
+        preserve,
+        2,
+        "Preserve: continue using audience-aware communication behavior"
+      ),
+      improvement_points: normalizeRequiredPoints(
+        improve,
+        3,
+        "Improve: simplify and clarify your message for a lay audience"
+      ),
+    },
   };
 }
 
@@ -76,17 +108,31 @@ function parseGroupCState(summary: string | null, feedback: { strengths?: string
       return fallback;
     }
 
-    const feedbackItems = Array.isArray(parsed.feedback_items) && parsed.feedback_items.length > 0
-      ? parsed.feedback_items.filter((item): item is DialogueItem => {
-          if (!item || typeof item !== "object") return false;
-          const candidate = item as DialogueItem;
-          return (candidate.kind === "strength" || candidate.kind === "improvement") && typeof candidate.text === "string";
-        })
-      : fallback.feedback_items;
+    const phase = parsed.phase === "feedback_delivered" ? "feedback_delivered" : "awaiting_reflection";
+
+    const preserve = Array.isArray(parsed.feedback_json?.preserve_points)
+      ? parsed.feedback_json?.preserve_points.filter((item): item is string => typeof item === "string")
+      : [];
+
+    const improve = Array.isArray(parsed.feedback_json?.improvement_points)
+      ? parsed.feedback_json?.improvement_points.filter((item): item is string => typeof item === "string")
+      : [];
+
+    const preserve_points = preserve.length > 0
+      ? normalizeRequiredPoints(preserve, 2, "Preserve: continue using audience-aware communication behavior")
+      : fallback.feedback_json.preserve_points;
+
+    const improvement_points = improve.length > 0
+      ? normalizeRequiredPoints(improve, 3, "Improve: simplify and clarify your message for a lay audience")
+      : fallback.feedback_json.improvement_points;
 
     return {
       feedback_group: "C",
-      feedback_items: feedbackItems,
+      phase,
+      feedback_json: {
+        preserve_points,
+        improvement_points,
+      },
     };
   } catch {
     return fallback;
@@ -115,8 +161,7 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
       }
 
       const state = getDefaultGroupCState(feedback);
-      const initialMessage =
-        "Great job completing the conversation. We will now review your feedback items one by one.";
+      const initialMessage = GROUP_C_INITIAL_QUESTION;
 
       const teacherMessage = makeTeacherMessage(initialMessage);
 
@@ -165,34 +210,40 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
 
       const state = parseGroupCState(feedback.summary, feedback);
 
-      const strengths = state.feedback_items
-        .filter((item) => item.kind === "strength")
-        .map((item) => `- ${item.text}`)
-        .join("\n");
+      if (state.phase === "awaiting_reflection") {
+        const teacherResponse = `${GROUP_C_FEEDBACK_INTRO_MESSAGE}\n\n${JSON.stringify(state.feedback_json, null, 2)}`;
+        const teacherMessage = makeTeacherMessage(teacherResponse);
 
-      const improvements = state.feedback_items
-        .filter((item) => item.kind === "improvement")
-        .map((item) => `- ${item.text}`)
-        .join("\n");
+        const nextState: GroupCState = {
+          ...state,
+          phase: "feedback_delivered",
+        };
+
+        await storage.updateFeedback(feedback.id, {
+          dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
+          summary: JSON.stringify(nextState),
+        });
+
+        return res.json({ response: teacherMessage });
+      }
 
       const originalConversation = (conversation.transcript || [])
         .map((msg) => `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`)
         .join("\n");
 
-      const systemPrompt = `You are an insightful communications teacher reviewing a completed exercise with your student.
-Your goal is to guide the student through their feedback naturally and conversationally. Do NOT list all feedback at once. Discuss one or two points at a time, and prompt the student to reflect on how they might apply this advice.
+      const systemPrompt = `You are an insightful science communication coach reviewing a completed exercise with your student.
 
-Here is the student's feedback to cover during this session:
-Strengths to preserve:
-${strengths || "None identified."}
+    You have already asked the student "${GROUP_C_INITIAL_QUESTION}" and then provided the following feedback JSON.
+    Continue the conversation as a helpful coach:
+    - Answer the student's questions or disagreements based on the full chat context.
+    - Do not invent new feedback points beyond what is in the JSON (you may clarify, elaborate, or give examples).
+    - Keep your responses concise, conversational, and encouraging.
 
-Areas for improvement:
-${improvements || "None identified."}
+    Feedback JSON (already sent to the student):
+    ${JSON.stringify(state.feedback_json, null, 2)}
 
-Original conversation transcript:
-${originalConversation || "No transcript available."}
-
-Keep your responses concise, conversational, and encouraging. Once all points have been discussed naturally, wrap up the conversation.`;
+    Original conversation transcript (for grounding quotes/context):
+    ${originalConversation || "No transcript available."}`;
 
       const messagesForLLM = [
         { role: "system", content: systemPrompt },

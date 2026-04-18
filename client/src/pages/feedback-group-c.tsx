@@ -24,6 +24,56 @@ type TeacherResponsePayload = {
   response: FeedbackMessage;
 };
 
+type FeedbackJsonPayload = {
+  preserve_points: string[];
+  improvement_points: string[];
+};
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function extractEmbeddedJson(content: string): { prefix: string; jsonText: string } | null {
+  const firstBrace = content.indexOf("{");
+  const lastBrace = content.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return null;
+  }
+
+  return {
+    prefix: content.slice(0, firstBrace).trim(),
+    jsonText: content.slice(firstBrace, lastBrace + 1),
+  };
+}
+
+function tryParseFeedbackJson(content: string): { prefix: string; payload: FeedbackJsonPayload } | null {
+  const extracted = extractEmbeddedJson(content);
+  if (!extracted) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(extracted.jsonText) as Partial<FeedbackJsonPayload>;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    if (!isStringArray(parsed.preserve_points) || !isStringArray(parsed.improvement_points)) {
+      return null;
+    }
+
+    return {
+      prefix: extracted.prefix,
+      payload: {
+        preserve_points: parsed.preserve_points,
+        improvement_points: parsed.improvement_points,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function FeedbackDialogue({
   conversationId,
   conversationNumber,
@@ -279,6 +329,7 @@ export default function FeedbackDialogue({
               ) : (
                 messages.map((message, index) => {
                   const isStudent = message.role === "student";
+                  const formattedFeedback = !isStudent ? tryParseFeedbackJson(message.content) : null;
                   return (
                     <div
                       key={`${message.timestamp}-${index}`}
@@ -295,7 +346,39 @@ export default function FeedbackDialogue({
                           {isStudent ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                           <span>{isStudent ? "You" : "Coach"}</span>
                         </div>
-                        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                        {formattedFeedback ? (
+                          <div className="space-y-3">
+                            {formattedFeedback.prefix ? (
+                              <p className="whitespace-pre-wrap leading-relaxed">{formattedFeedback.prefix}</p>
+                            ) : null}
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-3">
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-slate-700">Strengths to preserve</p>
+                                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                                  {formattedFeedback.payload.preserve_points.map((point, pointIndex) => (
+                                    <li key={`preserve-${pointIndex}`} className="leading-relaxed">
+                                      {point}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+
+                              <div className="space-y-2">
+                                <p className="text-sm font-semibold text-slate-700">Areas for improvement</p>
+                                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                                  {formattedFeedback.payload.improvement_points.map((point, pointIndex) => (
+                                    <li key={`improve-${pointIndex}`} className="leading-relaxed">
+                                      {point}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                        )}
                         <div className={`mt-3 text-[11px] ${isStudent ? "text-white/70" : "text-slate-400"}`}>
                           {new Date(message.timestamp).toLocaleTimeString([], {
                             hour: "2-digit",
