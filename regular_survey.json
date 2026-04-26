@@ -1,0 +1,156 @@
+{
+  "survey_title": "Survey",
+  "questions": [
+    {
+      "id": "Survey_Q1_Age",
+      "text": "What is you age?",
+      "type": "single_choice",
+      "options": [
+        {
+          "value": 1,
+          "label": "prefer not to say"
+        },
+        {
+          "value": 2,
+          "label": "18-60"
+        }
+      ]
+    },
+    {
+      "id": "Survey_Q2_Gender",
+      "text": "What is you gender?",
+      "type": "single_choice",
+      "options": [
+        {
+          "value": 1,
+          "label": "Male"
+        },
+        {
+          "value": 2,
+          "label": "Female"
+        },
+        {
+          "value": 3,
+          "label": "Non-binary / third gender"
+        },
+        {
+          "value": 4,
+          "label": "Prefer to self describe:",
+          "allows_free_text": true
+        },
+        {
+          "value": 5,
+          "label": "prefer not to say"
+        }
+      ]
+    },
+    {
+      "id": "Survey_Q3_Degree",
+      "text": "What degree program are you currently enrolled in?",
+      "type": "single_choice",
+      "options": [
+        {
+          "value": 1,
+          "label": "BA / BSc"
+        },
+        {
+          "value": 2,
+          "label": "MA / MSc"
+        },
+        {
+          "value": 3,
+          "label": "PhD / MD"
+        },
+        {
+          "value": 4,
+          "label": "Other:",
+          "allows_free_text": true
+        }
+      ]
+    },
+    {
+      "id": "Survey_Q4_Field",
+      "text": "What is your main field of study?",
+      "type": "single_choice",
+      "options": [
+        {
+          "value": 1,
+          "label": "Life Sciences (e.g., Biology, Biochemistry, Biotechnology)"
+        },
+        {
+          "value": 2,
+          "label": "Physical Sciences (e.g., Physics, Chemistry, Earth Sciences)"
+        },
+        {
+          "value": 3,
+          "label": "Engineering or Computer Science"
+        },
+        {
+          "value": 4,
+          "label": "Medicine or Health Sciences"
+        },
+        {
+          "value": 5,
+          "label": "Social Sciences (e.g., Psychology, Sociology, Education, Economics)"
+        },
+        {
+          "value": 6,
+          "label": "Humanities or Arts"
+        },
+        {
+          "value": 7,
+          "label": "Other (please specify):",
+          "allows_free_text": true
+        }
+      ]
+    },
+    {
+      "id": "Survey_Q5_Satisfac",
+      "text": "To what extent did you find the practice helpful for improving your communication skills?",
+      "type": "likert",
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "labels": {
+          "1": "Not helpful at all",
+          "5": "Very Helpful"
+        }
+      }
+    },
+    {
+      "id": "Survey_Q6_Recommend",
+      "text": "Please indicate your level of agreement with the following statement: “I would recommend this ptactice to other students who wish to improve their science communication skills.”",
+      "type": "likert",
+      "scale": {
+        "min": 1,
+        "max": 5,
+        "labels": {
+          "1": "Strongly disagree",
+          "5": "Strongly agree"
+        }
+      }
+    },
+    {
+      "id": "QSurvey_Q7_Change",
+      "text": "In the second conversation, did you change the way you communicated about your research? If yes, what did you change and why?",
+      "type": "text",
+      "multiline": true
+    },
+    {
+      "id": "Survey_Q8_Learn",
+      "text": "Did you learn something new during this practice? If so, what did you learn?",
+      "type": "text",
+      "multiline": true
+    },
+    {
+      "id": "Survey_Q9_general",
+      "text": "We would love to hear any comments or suggestions you have regarding this practice:",
+      "type": "text",
+      "multiline": true
+    }
+  ],
+  "meta": {
+    "source_file": "regular_survey.txt",
+    "generated_at": "2026-04-18T17:54:06.577Z"
+  }
+}

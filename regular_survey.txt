@@ -1,0 +1,128 @@
+Start of Block: Survey
+
+Survey_Q1_Age What is you age? 
+	o	prefer not to say  (1) 
+	o	18  (2) 
+	o	19  (3) 
+	o	20  (4) 
+	o	21  (5) 
+	o	22  (6) 
+	o	23  (7) 
+	o	24  (8) 
+	o	25  (9) 
+	o	26  (10) 
+	o	27  (11) 
+	o	28  (12) 
+	o	29  (13) 
+	o	30  (14) 
+	o	31  (15) 
+	o	32  (16) 
+	o	33  (17) 
+	o	34  (18) 
+	o	35  (19) 
+	o	36  (20) 
+	o	37  (21) 
+	o	38  (22) 
+	o	39  (23) 
+	o	40  (24) 
+	o	41  (25) 
+	o	42  (26) 
+	o	43  (27) 
+	o	44  (28) 
+	o	45  (29) 
+	o	46  (30) 
+	o	47  (31) 
+	o	48  (32) 
+	o	49  (33) 
+	o	50  (34) 
+	o	51  (35) 
+	o	52  (36) 
+	o	53  (37) 
+	o	54  (38) 
+	o	55  (39) 
+	o	56  (40) 
+	o	57  (41) 
+	o	58  (42) 
+	o	59  (43) 
+	o	60  (44) 
+	o	61  (45) 
+	o	62  (46) 
+	o	63  (47) 
+	o	64  (48) 
+	o	65  (49) 
+	o	66  (50) 
+	o	67  (51) 
+	o	68  (52) 
+	o	69  (53) 
+	o	70  (54) 
+
+
+
+Survey_Q2_Gender What is you gender?
+	o	Male  (1) 
+	o	Female  (2) 
+	o	Non-binary / third gender  (3) 
+	o	Prefer to self describe:  (4) __________________________________________________
+	o	prefer not to say  (5) 
+
+
+
+Survey_Q3_Degree What degree program are you currently enrolled in?
+	o	BA / BSc  (1) 
+	o	MA / MSc  (2) 
+	o	PhD / MD  (3) 
+	o	Other:  (4) __________________________________________________
+
+
+
+Survey_Q4_Field What is your main field of study?
+	o	Life Sciences (e.g., Biology, Biochemistry, Biotechnology)  (1) 
+	o	Physical Sciences (e.g., Physics, Chemistry, Earth Sciences)  (2) 
+	o	Engineering or Computer Science  (3) 
+	o	Medicine or Health Sciences  (4) 
+	o	Social Sciences (e.g., Psychology, Sociology, Education, Economics)  (5) 
+	o	Humanities or Arts  (6) 
+	o	Other (please specify):  (7) __________________________________________________
+
+
+
+Survey_Q5_Satisfac To what extent did you find the practice helpful for improving your communication skills?
+	Not helpful at all  1 (1)	2 (2)	3 (3)	4 (4)	Very Helpful  5 (5)
+  (1) 	o		o		o		o	o	
+
+
+
+
+Survey_Q6_Recommend Please indicate your level of agreement with the following statement: “I would recommend this ptactice to other students who wish to improve their science communication skills.”
+	Strongly disagree  1 (1)	2 (2)	3 (3)	4 (4)	Strongly agree  5 (5)
+  (1) 	o		o		o		o	o	
+
+
+
+
+QSurvey_Q7_Change In the second conversation, did you change the way you communicated about your research? If yes, what did you change and why?
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+
+
+
+Survey_Q8_Learn Did you learn something new during this practice? If so, what did you learn?
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+
+
+
+Survey_Q9_general We would love to hear any comments or suggestions you have regarding this practice:
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+________________________________________________________________
+
+End of Block: Survey
