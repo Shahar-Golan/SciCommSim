@@ -23,7 +23,7 @@ google-credentials.json
 *.sqlite3
 .local/
 tmp
-
+google-credentials.json
 
 # Logs
 logs

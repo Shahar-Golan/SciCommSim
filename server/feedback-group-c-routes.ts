@@ -12,17 +12,63 @@ type DialogueItem = {
   text: string;
 };
 
+type GroupCPhase =
+  | "awaiting_reflection"
+  | "awaiting_improvement_followup"
+  | "awaiting_preserve_followup";
+
 type GroupCState = {
   feedback_group: "C";
-  phase: "awaiting_reflection" | "feedback_delivered";
+  phase: GroupCPhase;
   feedback_json: {
     preserve_points: string[];
     improvement_points: string[];
   };
 };
 
-const GROUP_C_INITIAL_QUESTION = "how the conversation went";
-const GROUP_C_FEEDBACK_INTRO_MESSAGE = "interseting toughts', here is my feedback for you";
+type GroupCStage = "improvements" | "preserves";
+
+type GroupCStagePayload = {
+  stage: GroupCStage;
+  follow_up_question: string;
+  improvement_points?: string[];
+  preserve_points?: string[];
+};
+
+const GROUP_C_INITIAL_QUESTION = "Great job completing the first conversation. Before I share my feedback, I’d love to hear your perspective: how do you think it went?";
+const GROUP_C_FEEDBACK_INTRO_MESSAGE = "Interesting thoughts. Here is my feedback for you.";
+const GROUP_C_IMPROVEMENT_FOLLOW_UP = "Is there anything you’d like to ask, clarify, or explore further regarding the feedback I provided?";
+const GROUP_C_PRESERVE_FOLLOW_UP = "Would you like an explanation or expansion regarding these points?";
+
+function formatTeacherPayload(prefix: string, payload: GroupCStagePayload): string {
+  return `${prefix}\n\n${JSON.stringify(payload, null, 2)}`;
+}
+
+function buildStagePayload(state: GroupCState, stage: GroupCStage): GroupCStagePayload {
+  if (stage === "improvements") {
+    return {
+      stage,
+      follow_up_question: GROUP_C_IMPROVEMENT_FOLLOW_UP,
+      improvement_points: state.feedback_json.improvement_points,
+    };
+  }
+
+  return {
+    stage,
+    follow_up_question: GROUP_C_PRESERVE_FOLLOW_UP,
+    preserve_points: state.feedback_json.preserve_points,
+  };
+}
+
+function isClosureSignal(message: string): boolean {
+  const normalized = message.toLowerCase().replace(/\s+/g, " ").trim();
+
+  if (normalized.includes("?")) {
+    return false;
+  }
+
+  return /\b(understood|understand|got it|no questions?|nothing else|all clear|that's all|thank you|thanks|okay|ok|sounds good)\b/.test(normalized);
+}
 
 function parseFormattedPointsBlock(value: string | null | undefined): string[] {
   if (!value) {
@@ -108,7 +154,14 @@ function parseGroupCState(summary: string | null, feedback: { strengths?: string
       return fallback;
     }
 
-    const phase = parsed.phase === "feedback_delivered" ? "feedback_delivered" : "awaiting_reflection";
+    const parsedPhase = parsed.phase as string | undefined;
+    const phase: GroupCPhase =
+      parsedPhase === "feedback_delivered"
+        ? "awaiting_preserve_followup"
+        :
+      parsedPhase === "awaiting_improvement_followup" || parsedPhase === "awaiting_preserve_followup"
+        ? parsedPhase
+        : "awaiting_reflection";
 
     const preserve = Array.isArray(parsed.feedback_json?.preserve_points)
       ? parsed.feedback_json?.preserve_points.filter((item): item is string => typeof item === "string")
@@ -211,12 +264,15 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
       const state = parseGroupCState(feedback.summary, feedback);
 
       if (state.phase === "awaiting_reflection") {
-        const teacherResponse = `${GROUP_C_FEEDBACK_INTRO_MESSAGE}\n\n${JSON.stringify(state.feedback_json, null, 2)}`;
+        const teacherResponse = formatTeacherPayload(
+          GROUP_C_FEEDBACK_INTRO_MESSAGE,
+          buildStagePayload(state, "improvements")
+        );
         const teacherMessage = makeTeacherMessage(teacherResponse);
 
         const nextState: GroupCState = {
           ...state,
-          phase: "feedback_delivered",
+          phase: "awaiting_improvement_followup",
         };
 
         await storage.updateFeedback(feedback.id, {
@@ -227,20 +283,60 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
         return res.json({ response: teacherMessage });
       }
 
+      if (state.phase === "awaiting_improvement_followup" && isClosureSignal(message.content)) {
+        const teacherResponse = formatTeacherPayload(
+          GROUP_C_FEEDBACK_INTRO_MESSAGE,
+          buildStagePayload(state, "preserves")
+        );
+        const teacherMessage = makeTeacherMessage(teacherResponse);
+
+        const nextState: GroupCState = {
+          ...state,
+          phase: "awaiting_preserve_followup",
+        };
+
+        await storage.updateFeedback(feedback.id, {
+          dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
+          summary: JSON.stringify(nextState),
+        });
+
+        return res.json({ response: teacherMessage });
+      }
+
+      if (state.phase === "awaiting_preserve_followup" && isClosureSignal(message.content)) {
+        const teacherMessage = makeTeacherMessage(
+          "Thanks for reflecting on the feedback. If you want to revisit anything later, I’m here to help."
+        );
+
+        await storage.updateFeedback(feedback.id, {
+          dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
+          summary: JSON.stringify(state),
+        });
+
+        return res.json({ response: teacherMessage });
+      }
+
       const originalConversation = (conversation.transcript || [])
         .map((msg) => `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`)
         .join("\n");
 
+      const stageLabel = state.phase === "awaiting_preserve_followup" ? "preserve points" : "improvement points";
+      const feedbackPoints =
+        state.phase === "awaiting_preserve_followup"
+          ? state.feedback_json.preserve_points
+          : state.feedback_json.improvement_points;
+
       const systemPrompt = `You are an insightful science communication coach reviewing a completed exercise with your student.
 
-    You have already asked the student "${GROUP_C_INITIAL_QUESTION}" and then provided the following feedback JSON.
+    You have already asked the student "${GROUP_C_INITIAL_QUESTION}" and then provided the following ${stageLabel}.
     Continue the conversation as a helpful coach:
     - Answer the student's questions or disagreements based on the full chat context.
     - Do not invent new feedback points beyond what is in the JSON (you may clarify, elaborate, or give examples).
+    - Do not advance to the other feedback stage unless the student clearly says they understand or do not have more questions.
     - Keep your responses concise, conversational, and encouraging.
 
-    Feedback JSON (already sent to the student):
-    ${JSON.stringify(state.feedback_json, null, 2)}
+    Feedback points already sent to the student:
+    ${JSON.stringify(feedbackPoints, null, 2)}
 
     Original conversation transcript (for grounding quotes/context):
     ${originalConversation || "No transcript available."}`;
@@ -265,7 +361,7 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
 
       await storage.updateFeedback(feedback.id, {
         dialogueTranscript: [...updatedTranscript, teacherMessage] as any,
-        summary: feedback.summary || JSON.stringify(state),
+        summary: JSON.stringify(state),
       });
 
       res.json({ response: teacherMessage });

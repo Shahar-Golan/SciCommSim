@@ -25,9 +25,15 @@ type TeacherResponsePayload = {
 };
 
 type FeedbackJsonPayload = {
+  stage?: "improvements" | "preserves";
+  follow_up_question?: string;
   preserve_points: string[];
   improvement_points: string[];
 };
+
+function isFeedbackStage(value: unknown): value is FeedbackJsonPayload["stage"] {
+  return value === "improvements" || value === "preserves";
+}
 
 function renderTextWithHighlightedQuotes(text: string) {
   const nodes: Array<JSX.Element | string> = [];
@@ -94,12 +100,41 @@ function tryParseFeedbackJson(content: string): { prefix: string; payload: Feedb
     }
 
     if (!isStringArray(parsed.preserve_points) || !isStringArray(parsed.improvement_points)) {
+      const stage = isFeedbackStage(parsed.stage) ? parsed.stage : undefined;
+      const followUpQuestion = typeof parsed.follow_up_question === "string" ? parsed.follow_up_question : undefined;
+
+      if (stage === "improvements" && isStringArray(parsed.improvement_points)) {
+        return {
+          prefix: extracted.prefix,
+          payload: {
+            stage,
+            follow_up_question: followUpQuestion,
+            preserve_points: [],
+            improvement_points: parsed.improvement_points,
+          },
+        };
+      }
+
+      if (stage === "preserves" && isStringArray(parsed.preserve_points)) {
+        return {
+          prefix: extracted.prefix,
+          payload: {
+            stage,
+            follow_up_question: followUpQuestion,
+            preserve_points: parsed.preserve_points,
+            improvement_points: [],
+          },
+        };
+      }
+
       return null;
     }
 
     return {
       prefix: extracted.prefix,
       payload: {
+        stage: isFeedbackStage(parsed.stage) ? parsed.stage : undefined,
+        follow_up_question: typeof parsed.follow_up_question === "string" ? parsed.follow_up_question : undefined,
         preserve_points: parsed.preserve_points,
         improvement_points: parsed.improvement_points,
       },
@@ -365,6 +400,20 @@ export default function FeedbackDialogue({
                 messages.map((message, index) => {
                   const isStudent = message.role === "student";
                   const formattedFeedback = !isStudent ? tryParseFeedbackJson(message.content) : null;
+                  const displayImprovementPoints = !isStudent && formattedFeedback
+                    ? formattedFeedback.payload.stage === "improvements"
+                      ? formattedFeedback.payload.improvement_points
+                      : formattedFeedback.payload.stage === "preserves"
+                        ? []
+                        : formattedFeedback.payload.improvement_points
+                    : [];
+                  const displayPreservePoints = !isStudent && formattedFeedback
+                    ? formattedFeedback.payload.stage === "preserves"
+                      ? formattedFeedback.payload.preserve_points
+                      : formattedFeedback.payload.stage === "improvements"
+                        ? []
+                        : formattedFeedback.payload.preserve_points
+                    : [];
                   return (
                     <div
                       key={`${message.timestamp}-${index}`}
@@ -388,28 +437,38 @@ export default function FeedbackDialogue({
                             ) : null}
 
                             <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 space-y-3">
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-slate-700">Strengths to preserve</p>
-                                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-                                  {formattedFeedback.payload.preserve_points.map((point, pointIndex) => (
-                                    <li key={`preserve-${pointIndex}`} className="leading-relaxed">
-                                      {renderTextWithHighlightedQuotes(point)}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
+                              {displayPreservePoints.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-semibold text-slate-700">Strengths to preserve</p>
+                                  <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                                    {displayPreservePoints.map((point, pointIndex) => (
+                                      <li key={`preserve-${pointIndex}`} className="leading-relaxed">
+                                        {renderTextWithHighlightedQuotes(point)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
 
-                              <div className="space-y-2">
-                                <p className="text-sm font-semibold text-slate-700">Areas for improvement</p>
-                                <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-                                  {formattedFeedback.payload.improvement_points.map((point, pointIndex) => (
-                                    <li key={`improve-${pointIndex}`} className="leading-relaxed">
-                                      {renderTextWithHighlightedQuotes(point)}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
+                              {displayImprovementPoints.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-semibold text-slate-700">Areas for improvement</p>
+                                  <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                                    {displayImprovementPoints.map((point, pointIndex) => (
+                                      <li key={`improve-${pointIndex}`} className="leading-relaxed">
+                                        {renderTextWithHighlightedQuotes(point)}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
                             </div>
+
+                            {formattedFeedback.payload.follow_up_question ? (
+                              <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 leading-relaxed">
+                                {formattedFeedback.payload.follow_up_question}
+                              </p>
+                            ) : null}
                           </div>
                         ) : (
                           <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
