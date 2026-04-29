@@ -18,6 +18,6 @@ I need to ask Ofra to expand the premissions.
     c) "old" reflective questionnaire (the one that was in the previous simulator) - we need to verify that it's exists.
 
 5. 
-    a) Create an automatic code/ ID that will be presented to the user in the end of all the sessions! maybe we dont need to genarate new, but provide the same key from the data base, but wee have to ensure the key is unique, and we will later on will know how to connect them.
+    a) Create an automatic code/ ID that will be presented to the user in the end of all the phases (reached the survey part and click end)! maybe we dont need to genarate new, but provide the same key from the data base, but wee have to ensure the key is unique, and we will later on will know how to connect them.
     b) Generate a small sized PDF that contains the code, and add a download button so the user could click it and download a blank file with the text code inside it.
     c) Add text instructions above the button, "Download this file and upload it into the submition box in your course website"
