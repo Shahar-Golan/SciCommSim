@@ -14,6 +14,7 @@ export interface RecordingOptions {
 export function useVoiceRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
@@ -26,6 +27,7 @@ export function useVoiceRecorder() {
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      setIsPaused(false);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -51,6 +53,7 @@ export function useVoiceRecorder() {
 
       mediaRecorder.onstop = async () => {
         setIsRecording(false);
+        setIsPaused(false);
         setIsProcessing(true);
 
         try {
@@ -100,6 +103,26 @@ export function useVoiceRecorder() {
     });
   }, []);
 
+  const pauseRecording = useCallback(() => {
+    const mediaRecorder = mediaRecorderRef.current;
+    if (!mediaRecorder || mediaRecorder.state !== 'recording') {
+      return;
+    }
+
+    mediaRecorder.pause();
+    setIsPaused(true);
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    const mediaRecorder = mediaRecorderRef.current;
+    if (!mediaRecorder || mediaRecorder.state !== 'paused') {
+      return;
+    }
+
+    mediaRecorder.resume();
+    setIsPaused(false);
+  }, []);
+
   const toggleRecording = useCallback(async (options: RecordingOptions = {}): Promise<RecordingResult | null> => {
     if (isRecording) {
       return await stopRecording(options);
@@ -112,7 +135,10 @@ export function useVoiceRecorder() {
   return {
     isRecording,
     isProcessing,
+    isPaused,
     startRecording,
+    pauseRecording,
+    resumeRecording,
     stopRecording,
     toggleRecording,
   };

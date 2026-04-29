@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Pause, Square, Play, Volume2, Clock } from "lucide-react";
-import VoiceRecorder from "@/components/voice-recorder";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import VoiceRecorder, { type VoiceRecorderHandle } from "@/components/voice-recorder";
 import ConversationTranscript from "@/components/conversation-transcript";
 import { apiRequest } from "@/lib/queryClient";
 import { synthesizeSpeech, playAudio } from "@/lib/audio-utils";
@@ -25,6 +26,10 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string>("");
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isConversationPaused, setIsConversationPaused] = useState(false);
+  const [showEndConfirmation, setShowEndConfirmation] = useState(false);
+  const voiceRecorderRef = useRef<VoiceRecorderHandle>(null);
+  const wasPausedBeforeEndDialogRef = useRef(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -34,6 +39,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   // Timer effect
   useEffect(() => {
     if (!startTime) return;
+    if (isConversationPaused) return;
 
     const timer = setInterval(() => {
       const now = new Date();
@@ -42,7 +48,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [startTime]);
+  }, [startTime, isConversationPaused]);
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -242,12 +248,48 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
     });
   };
 
-  const handleEndConversation = async () => {
+  const handlePauseToggle = () => {
+    if (isConversationPaused) {
+      voiceRecorderRef.current?.resumeRecording();
+      setIsConversationPaused(false);
+      return;
+    }
+
+    voiceRecorderRef.current?.pauseRecording();
+    setIsConversationPaused(true);
+  };
+
+  const openEndConfirmation = () => {
+    wasPausedBeforeEndDialogRef.current = isConversationPaused;
+    setIsConversationPaused(true);
+    setShowEndConfirmation(true);
+  };
+
+  const handleEndConfirmationOpenChange = (open: boolean) => {
+    setShowEndConfirmation(open);
+
+    if (!open) {
+      setIsConversationPaused(wasPausedBeforeEndDialogRef.current);
+    }
+  };
+
+  const resumeConversation = () => {
+    setShowEndConfirmation(false);
+    setIsConversationPaused(wasPausedBeforeEndDialogRef.current);
+
+    if (!wasPausedBeforeEndDialogRef.current && isConversationPaused) {
+      voiceRecorderRef.current?.resumeRecording();
+    }
+  };
+
+  const proceedToFeedback = async () => {
+    setShowEndConfirmation(false);
+
     try {
       await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
         endedAt: new Date().toISOString(),
         transcript: messages,
-        duration: Math.floor((Date.now() - new Date().getTime()) / 1000), // Approximate duration
+        duration: elapsedTime,
       });
       onNext(conversationId);
     } catch (error) {
@@ -258,6 +300,15 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
         variant: "destructive",
       });
     }
+  };
+
+  const handleEndConversation = async () => {
+    if (elapsedTime < 180) {
+      openEndConfirmation();
+      return;
+    }
+
+    await proceedToFeedback();
   };
 
   const toggleAudioPlayback = async () => {
@@ -308,9 +359,10 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
         <CardContent className="p-8">
           <div className="text-center space-y-6">
             <VoiceRecorder 
+              ref={voiceRecorderRef}
               onTranscription={handleStudentTranscription}
               onError={handleTranscriptionError}
-              disabled={isProcessingAI}
+              disabled={isProcessingAI || isConversationPaused}
               conversationId={conversationId}
             />
 
@@ -320,9 +372,10 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
                 variant="outline"
                 className="px-6 py-2"
                 data-testid="button-pause"
+                onClick={handlePauseToggle}
               >
                 <Pause className="mr-2 w-4 h-4" />
-                Pause
+                {isConversationPaused ? "Resume" : "Pause"}
               </Button>
             </div>
 
@@ -393,6 +446,36 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
           </Button>
         </div>
       </div>
+
+      <Dialog open={showEndConfirmation} onOpenChange={handleEndConfirmationOpenChange}>
+        <DialogContent className="max-w-xl border-slate-200 bg-white shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl text-slate-900">Are you sure you want to end the conversation?</DialogTitle>
+            <DialogDescription className="text-base text-slate-600 leading-relaxed">
+              Continuing for at least 5 minutes will help you get more accurate and useful feedback.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="gap-3 sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resumeConversation}
+              className="w-full border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100 sm:w-auto font-bold order-1"
+            >
+              Resume conversation
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void proceedToFeedback()}
+              className="w-full bg-red-200 text-red-900 hover:bg-red-300 sm:w-auto order-2"
+            >
+              Proceed to feedback
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
