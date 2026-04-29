@@ -452,7 +452,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
 
               <p className="font-semibold mt-4">Risks:</p>
               <p>
-                There are no known risks associated with participation in this study. However, since the simulator is based on OpenAI's GPT-4o model, your conversation data may be used by OpenAI to further train or improve its systems. We therefore encourage you to think carefully about what you choose to share in order to avoid disclosing any sensitive information.
+                There are no known risks associated with participation in this study. However, since the simulator is based on OpenAI's GPT-5 model, your conversation data may be used by OpenAI to further train or improve its systems. We therefore encourage you to think carefully about what you choose to share in order to avoid disclosing any sensitive information.
               </p>
 
               <p className="font-semibold mt-4">Benefits:</p>

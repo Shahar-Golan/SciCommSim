@@ -8,6 +8,24 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
 });
 
+const FEEDBACK_THINKING_MODEL =
+  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-5";
+
+const FEEDBACK_THINKING_MODEL_FALLBACK = process.env.OPENAI_FEEDBACK_THINKING_MODEL_FALLBACK || "gpt-4o";
+
+function isModelNotFoundError(error: unknown): boolean {
+  return !!error && typeof error === "object" && (error as any).code === "model_not_found";
+}
+
+function isTemperatureUnsupportedError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as any).code === "unsupported_value" &&
+    (error as any).param === "temperature"
+  );
+}
+
 export type FeedbackGroup = "A" | "B" | "C";
 
 export function parseFeedbackGroup(input: unknown): FeedbackGroup {
@@ -226,23 +244,61 @@ export async function generateFeedback(
     const groupBQuoteSnippets = feedbackGroup === "B" ? extractStudentQuoteSnippets(messages, 12) : [];
     const userContent = feedbackGroup === "B" ? buildGroupBUserContent(conversationText, groupBQuoteSnippets) : conversationText;
 
-    const requestOnce = async (temperature: number, extraUserHint?: string) => {
+    const requestOnceWithModel = async (model: string, temperature: number, extraUserHint?: string) => {
       const content = extraUserHint ? `${extraUserHint}\n\n${userContent}` : userContent;
-      return openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content,
-          },
-        ],
-        response_format: { type: "json_object" },
-        temperature,
-      });
+      const messages = [
+        { role: "system" as const, content: systemPrompt },
+        {
+          role: "user" as const,
+          content,
+        },
+      ];
+
+      try {
+        const completion = await openai.chat.completions.create({
+          model,
+          messages,
+          response_format: { type: "json_object" },
+          temperature,
+        });
+        return { completion, usedModel: model };
+      } catch (error) {
+        if (isTemperatureUnsupportedError(error)) {
+          console.warn(
+            `[AI] Model '${model}' does not support non-default temperature; retrying without temperature.`
+          );
+          const completion = await openai.chat.completions.create({
+            model,
+            messages,
+            response_format: { type: "json_object" },
+          });
+          return { completion, usedModel: model };
+        }
+        throw error;
+      }
     };
 
-    const response = await requestOnce(feedbackGroup === "B" ? 0.1 : 0.3);
+    const requestOnce = async (temperature: number, extraUserHint?: string) => {
+      try {
+        return await requestOnceWithModel(FEEDBACK_THINKING_MODEL, temperature, extraUserHint);
+      } catch (error) {
+        if (
+          isModelNotFoundError(error) &&
+          FEEDBACK_THINKING_MODEL_FALLBACK &&
+          FEEDBACK_THINKING_MODEL_FALLBACK !== FEEDBACK_THINKING_MODEL
+        ) {
+          console.warn(
+            `[AI] Feedback model '${FEEDBACK_THINKING_MODEL}' not available (model_not_found). Falling back to '${FEEDBACK_THINKING_MODEL_FALLBACK}'.`
+          );
+          return await requestOnceWithModel(FEEDBACK_THINKING_MODEL_FALLBACK, temperature, extraUserHint);
+        }
+        throw error;
+      }
+    };
+
+    const { completion: response, usedModel } = await requestOnce(feedbackGroup === "B" ? 0.1 : 0.3);
+
+    console.log(`[AI] Feedback analysis used model '${usedModel}'.`);
 
     const parsed = JSON.parse(response.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
 
@@ -268,7 +324,7 @@ export async function generateFeedback(
       const hasExplanations = groupBPointsHaveExplanations(combined);
 
       if (!hasValidQuotes || !hasExplanations) {
-        const retry = await requestOnce(
+        const { completion: retry } = await requestOnce(
           0,
           "IMPORTANT: Every point must include exactly one direct STUDENT quote in double quotes copied verbatim from the transcript (do not quote the layperson, and do not invent quotes). Also include a clear explanatory clause outside the quote (observation + impact/reason). Quote-only bullets are invalid."
         );

@@ -7,6 +7,24 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
 });
 
+const FEEDBACK_THINKING_MODEL =
+  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-5";
+
+const FEEDBACK_THINKING_MODEL_FALLBACK = process.env.OPENAI_FEEDBACK_THINKING_MODEL_FALLBACK || "gpt-4o";
+
+function isModelNotFoundError(error: unknown): boolean {
+  return !!error && typeof error === "object" && (error as any).code === "model_not_found";
+}
+
+function isTemperatureUnsupportedError(error: unknown): boolean {
+  return (
+    !!error &&
+    typeof error === "object" &&
+    (error as any).code === "unsupported_value" &&
+    (error as any).param === "temperature"
+  );
+}
+
 type DialogueItem = {
   kind: "strength" | "improvement";
   text: string;
@@ -349,11 +367,48 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
         })),
       ] as any;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: messagesForLLM,
-        temperature: 0.7,
-      });
+      const requestOnce = async (model: string) => {
+        try {
+          return await openai.chat.completions.create({
+            model,
+            messages: messagesForLLM,
+            temperature: 0.7,
+          });
+        } catch (error) {
+          if (isTemperatureUnsupportedError(error)) {
+            console.warn(
+              `[AI] Model '${model}' does not support non-default temperature; retrying without temperature.`
+            );
+            return await openai.chat.completions.create({
+              model,
+              messages: messagesForLLM,
+            });
+          }
+          throw error;
+        }
+      };
+
+      let completion;
+      let usedModel = FEEDBACK_THINKING_MODEL;
+      try {
+        completion = await requestOnce(FEEDBACK_THINKING_MODEL);
+      } catch (error) {
+        if (
+          isModelNotFoundError(error) &&
+          FEEDBACK_THINKING_MODEL_FALLBACK &&
+          FEEDBACK_THINKING_MODEL_FALLBACK !== FEEDBACK_THINKING_MODEL
+        ) {
+          console.warn(
+            `[AI] Feedback dialogue model '${FEEDBACK_THINKING_MODEL}' not available (model_not_found). Falling back to '${FEEDBACK_THINKING_MODEL_FALLBACK}'.`
+          );
+          usedModel = FEEDBACK_THINKING_MODEL_FALLBACK;
+          completion = await requestOnce(FEEDBACK_THINKING_MODEL_FALLBACK);
+        } else {
+          throw error;
+        }
+      }
+
+      console.log(`[AI] Feedback dialogue used model '${usedModel}'.`);
 
       const teacherResponse = completion.choices[0]?.message?.content || "Could you tell me more about your thoughts on that?";
 
