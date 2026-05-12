@@ -1,0 +1,191 @@
+{
+  "title": "Post Practice Surveys",
+  "sections": [
+    {
+      "section_title": "Demographics [cite: 1]",
+      "questions": [
+        {
+          "question_text": "What is your age? [cite: 2]"
+        },
+        {
+          "question_text": "What is your gender? [cite: 3]",
+          "options": [
+            "Male [cite: 3]",
+            "Female [cite: 3]",
+            "Non-binary / third gender [cite: 3]",
+            "Prefer to self describe: [cite: 3]",
+            "prefer not to say [cite: 3]"
+          ]
+        },
+        {
+          "question_text": "What degree program are you currently enrolled in? [cite: 4]",
+          "options": [
+            "BA / BSc [cite: 4]",
+            "MA / MSc [cite: 4]",
+            "PhD / MD [cite: 4]",
+            "Other: [cite: 4]"
+          ]
+        },
+        {
+          "question_text": "What is your main field of study? [cite: 5]",
+          "options": [
+            "Life Sciences (e.g., Biology, Biochemistry, Biotechnology) [cite: 5]",
+            "Physical Sciences (e.g., Physics, Chemistry, Earth Sciences) [cite: 5]",
+            "Engineering or Computer Science [cite: 5]",
+            "Medicine or Health Sciences [cite: 5]",
+            "Social Sciences (e.g., Psychology, Sociology, Education, Economics) [cite: 5]",
+            "Humanities or Arts [cite: 5]",
+            "Other (please specify): [cite: 5]"
+          ]
+        }
+      ]
+    },
+    {
+      "section_title": "Explainability [cite: 7]",
+      "instructions": "Please indicate your level of agreement with the following statements: [cite: 8]",
+      "questions": [
+        {
+          "question_text": "Clarity:  The feedback clearly explained my communication during the conversation. [cite: 9]",
+          "scale": {
+            "1": "Strongly disagree [cite: 9]",
+            "2": "2 [cite: 9]",
+            "3": "3 [cite: 9]",
+            "4": "4 [cite: 9]",
+            "5": "Strongly agree [cite: 9]"
+          }
+        },
+        {
+          "question_text": "Understandability:  From the feedback, I understand how I communicated during the conversation. [cite: 10]",
+          "scale": {
+            "1": "Strongly disagree [cite: 10]",
+            "2": "2 [cite: 10]",
+            "3": "3 [cite: 10]",
+            "4": "4 [cite: 10]",
+            "5": "Strongly agree [cite: 10]"
+          }
+        },
+        {
+          "question_text": "Completeness:  The feedback addressed all the important aspects of my communication. [cite: 11]",
+          "scale": {
+            "1": "Strongly disagree [cite: 11]",
+            "2": "2 [cite: 11]",
+            "3": "3 [cite: 11]",
+            "4": "4 [cite: 11]",
+            "5": "Strongly agree [cite: 11]"
+          }
+        },
+        {
+          "question_text": "Satisfaction:  The feedback was satisfying in capturing my communication during the conversation. [cite: 12]",
+          "scale": {
+            "1": "Strongly disagree [cite: 12]",
+            "2": "2 [cite: 12]",
+            "3": "3 [cite: 12]",
+            "4": "4 [cite: 12]",
+            "5": "Strongly agree [cite: 12]"
+          }
+        },
+        {
+          "question_text": "Usefulness:  The feedback was useful for improving my communication skills. [cite: 13]",
+          "scale": {
+            "1": "Strongly disagree [cite: 13]",
+            "2": "2 [cite: 13]",
+            "3": "3 [cite: 13]",
+            "4": "4 [cite: 13]",
+            "5": "Strongly agree [cite: 13]"
+          }
+        },
+        {
+          "question_text": "Accuracy:  The feedback accurately reflected my communication during the conversation. [cite: 14]",
+          "scale": {
+            "1": "Strongly disagree [cite: 14]",
+            "2": "2 [cite: 14]",
+            "3": "3 [cite: 14]",
+            "4": "4 [cite: 14]",
+            "5": "Strongly agree [cite: 14]"
+          }
+        },
+        {
+          "question_text": "Insight:  The feedback provided insights about my communication that I was not aware of during the conversation. [cite: 15]",
+          "scale": {
+            "1": "Strongly disagree [cite: 15]",
+            "2": "2 [cite: 15]",
+            "3": "3 [cite: 15]",
+            "4": "4 [cite: 15]",
+            "5": "Strongly agree [cite: 15]"
+          }
+        },
+        {
+          "question_text": "Explainability (Justification):  The feedback helped me understand why the specific comments in the feedback were given to me. [cite: 16]",
+          "scale": {
+            "1": "Strongly disagree [cite: 16]",
+            "2": "2 [cite: 16]",
+            "3": "3 [cite: 16]",
+            "4": "4 [cite: 16]",
+            "5": "Strongly agree [cite: 16]"
+          }
+        },
+        {
+          "question_text": "Explainability (Depth):  The feedback provided sufficient explanation for its evaluations. [cite: 17]",
+          "scale": {
+            "1": "Strongly disagree [cite: 17]",
+            "2": "2 [cite: 17]",
+            "3": "3 [cite: 17]",
+            "4": "4 [cite: 17]",
+            "5": "Strongly agree [cite: 17]"
+          }
+        },
+        {
+          "question_text": "Preference:  I would prefer receiving feedback in this format compared to other forms of feedback (e.g., brief comments, grades only, or no feedback). [cite: 18]",
+          "scale": {
+            "1": "Strongly disagree [cite: 18]",
+            "2": "2 [cite: 18]",
+            "3": "3 [cite: 18]",
+            "4": "4 [cite: 18]",
+            "5": "Strongly agree [cite: 18]"
+          }
+        }
+      ]
+    },
+    {
+      "section_title": "User Experience [cite: 20]",
+      "questions": [
+        {
+          "question_text": "To what extent did you find the practice helpful for improving your communication skills? [cite: 21]",
+          "scale": {
+            "1": "Not helpful at all [cite: 21]",
+            "2": "2 [cite: 21]",
+            "3": "3 [cite: 21]",
+            "4": "4 [cite: 21]",
+            "5": "Very Helpful [cite: 21]"
+          }
+        },
+        {
+          "question_text": "Please indicate your level of agreement with the following statement: “I would recommend this practice to other students who wish to improve their science communication skills”. [cite: 22]",
+          "scale": {
+            "1": "Strongly disagree [cite: 22]",
+            "2": "2 [cite: 22]",
+            "3": "3 [cite: 22]",
+            "4": "4 [cite: 22]",
+            "5": "Strongly agree [cite: 22]"
+          }
+        },
+        {
+          "question_text": "In the second conversation, did you change the way you communicated with the simulator? [cite: 23]"
+        },
+        {
+          "question_text": "If yes, what did you change and why? [cite: 24]"
+        },
+        {
+          "question_text": "Did you learn something new during this practice? If so, what did you learn? [cite: 25]"
+        },
+        {
+          "question_text": "We would love to hear any comments or suggestions you have regarding this tool: [cite: 26]"
+        }
+      ]
+    }
+  ],
+  "closing_messages": [
+    "We thank you for your time spent taking this survey. [cite: 27]",
+    "Your response has been recorded. [cite: 27]"
+  ]
+}
