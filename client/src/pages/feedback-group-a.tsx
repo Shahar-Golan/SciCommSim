@@ -25,7 +25,7 @@ export default function FeedbackGroupA({ feedback, conversationNumber, onNext, o
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
           <TrendingUp className="text-white text-2xl w-8 h-8" />
         </div>
-        <h2 className="text-3xl font-bold text-slate-800">Your Performance Feedback</h2>
+        <h2 className="text-3xl font-bold text-slate-800">Feedback</h2>
         <p className="text-lg text-slate-600">
           {conversationNumber === 1 ? "First" : "Second"} conversation completed.
         </p>

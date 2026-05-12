@@ -21,6 +21,8 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string>("");
   const [isProcessingAI, setIsProcessingAI] = useState(false);
+  const [aiProgressValue, setAiProgressValue] = useState(0);
+  const [aiProgressLabel, setAiProgressLabel] = useState("");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string>("");
@@ -153,38 +155,44 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
     // Start AI response immediately (don't wait for DB)
     setIsProcessingAI(true);
-    
-    console.log(`[CLIENT] Requesting AI response...`);
-    const aiStart = Date.now();
-    
-    // Run AI request and DB update in parallel
-    const [aiResponseResult, _dbUpdate1] = await Promise.all([
-      apiRequest("POST", "/api/ai-response", {
-        messages: updatedMessages,
-      }).then(res => res.json()),
-      
-      // DB update in background
-      (async () => {
-        const dbStart = Date.now();
-        try {
-          await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
-            transcript: updatedMessages,
-          });
-          console.log(`[CLIENT] DB update 1 took ${Date.now() - dbStart}ms`);
-        } catch (error) {
-          console.error("Failed to update transcript:", error);
-        }
-      })()
-    ]);
-    
-    console.log(`[CLIENT] AI response received in ${Date.now() - aiStart}ms`);
+    setAiProgressLabel("Preparing a reply...");
+    setAiProgressValue(10);
     
     try {
+      console.log(`[CLIENT] Requesting AI response...`);
+      const aiStart = Date.now();
+
+      // Run AI request and DB update in parallel
+      const [aiResponseResult, _dbUpdate1] = await Promise.all([
+        apiRequest("POST", "/api/ai-response", {
+          messages: updatedMessages,
+        }).then(res => res.json()),
+
+        // DB update in background
+        (async () => {
+          const dbStart = Date.now();
+          try {
+            await apiRequest("PATCH", `/api/conversations/${conversationId}`, {
+              transcript: updatedMessages,
+            });
+            console.log(`[CLIENT] DB update 1 took ${Date.now() - dbStart}ms`);
+          } catch (error) {
+            console.error("Failed to update transcript:", error);
+          }
+        })(),
+      ]);
+
+      console.log(`[CLIENT] AI response received in ${Date.now() - aiStart}ms`);
+      setAiProgressLabel("Drafting the reply...");
+      setAiProgressValue(40);
+
       // Generate and upload AI audio
       let aiAudioUrl: string | null = null;
       let audioBuffer: string | null = null;
       
       console.log(`[CLIENT] Requesting TTS generation...`);
+      setAiProgressLabel("Generating voice...");
+      setAiProgressValue(65);
       const ttsStart = Date.now();
       
       const audioResult = await apiRequest("POST", "/api/audio/upload-ai", {
@@ -197,6 +205,8 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       audioBuffer = audioResult.audioBuffer;
       
       console.log(`[CLIENT] TTS + Upload completed in ${Date.now() - ttsStart}ms`);
+      setAiProgressLabel("Finalizing...");
+      setAiProgressValue(85);
 
       const aiMessage = addMessage('ai', aiResponseResult.response, aiAudioUrl);
       const finalMessages = [...updatedMessages, aiMessage];
@@ -215,6 +225,8 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
       // Play audio from buffer
       if (audioBuffer) {
+        setAiProgressLabel("Playing the reply...");
+        setAiProgressValue(95);
         const audioBlob = new Blob(
           [Uint8Array.from(atob(audioBuffer), c => c.charCodeAt(0))],
           { type: 'audio/mpeg' }
@@ -237,6 +249,8 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
       });
     } finally {
       setIsProcessingAI(false);
+      setAiProgressLabel("");
+      setAiProgressValue(0);
     }
   };
 
@@ -381,9 +395,9 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
             {isProcessingAI && (
               <div className="text-center">
-                <p className="text-slate-600">AI is thinking...</p>
+                <p className="text-slate-600">{aiProgressLabel || "AI is working..."}</p>
                 <div className="w-32 mx-auto mt-2">
-                  <Progress value={50} className="h-1" />
+                  <Progress value={aiProgressValue || 15} className="h-1" />
                 </div>
               </div>
             )}

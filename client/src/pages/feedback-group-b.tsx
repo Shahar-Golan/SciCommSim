@@ -1,4 +1,4 @@
-import { ArrowLeft, RotateCcw, Quote, TrendingUp } from "lucide-react";
+import { ArrowLeft, RotateCcw, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Feedback } from "@shared/schema";
 
@@ -44,25 +44,7 @@ function renderTextWithHighlightedQuotes(text: string) {
   return nodes;
 }
 
-function extractReferences(feedback: Feedback): string[] {
-  const quoteRegex = /"([^"]+)"/g;
-  const text = `${feedback.strengths || ""}\n${feedback.improvements || ""}`;
-  const quotes: string[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = quoteRegex.exec(text)) !== null) {
-    const value = match[1]?.trim();
-    if (value) {
-      quotes.push(value);
-    }
-  }
-
-  return Array.from(new Set(quotes));
-}
-
 export default function FeedbackGroupB({ feedback, conversationNumber, onNext, onBack }: FeedbackGroupBProps) {
-  const references = extractReferences(feedback);
-
   return (
     <div className="space-y-8">
       {onBack && (
@@ -78,9 +60,9 @@ export default function FeedbackGroupB({ feedback, conversationNumber, onNext, o
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
           <TrendingUp className="text-white text-2xl w-8 h-8" />
         </div>
-        <h2 className="text-3xl font-bold text-slate-800">Your Performance Feedback</h2>
+        <h2 className="text-3xl font-bold text-slate-800">Feedback</h2>
         <p className="text-lg text-slate-600">
-          {conversationNumber === 1 ? "First" : "Second"} conversation completed, with transcript-based references.
+          {conversationNumber === 1 ? "First" : "Second"} conversation completed.
         </p>
       </div>
 
@@ -102,22 +84,6 @@ export default function FeedbackGroupB({ feedback, conversationNumber, onNext, o
               Points for Improvement
             </h3>
             <p className="text-blue-700 leading-relaxed whitespace-pre-wrap">{renderTextWithHighlightedQuotes(feedback.improvements)}</p>
-          </div>
-        )}
-
-        {references.length > 0 && (
-          <div className="bg-slate-50 rounded-xl shadow-sm border border-slate-200 p-8 space-y-4">
-            <h3 className="text-xl font-semibold text-slate-800 flex items-center">
-              <Quote className="mr-2 w-5 h-5 text-slate-600" />
-              References from Your Conversation
-            </h3>
-            <div className="space-y-3">
-              {references.map((quoteText, index) => (
-                <div key={`${quoteText}-${index}`} className="rounded-lg border border-slate-300 bg-white px-4 py-3">
-                  <p className="text-slate-700 italic">“{quoteText}”</p>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>

@@ -18,10 +18,21 @@ interface FeedbackDialogueProps {
 type InitialDialogueResponse = {
   message: FeedbackMessage;
   feedbackId: string;
+  done?: boolean;
+  currentIndex?: number;
+  total?: number;
 };
 
 type TeacherResponsePayload = {
   response: FeedbackMessage;
+  done?: boolean;
+};
+
+type NextFeedbackPayload = {
+  message: FeedbackMessage;
+  done?: boolean;
+  currentIndex?: number;
+  total?: number;
 };
 
 type FeedbackJsonPayload = {
@@ -156,8 +167,8 @@ export default function FeedbackDialogue({
   const [isProcessingTeacher, setIsProcessingTeacher] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isPreparingFeedback, setIsPreparingFeedback] = useState(true);
-  const [feedbackReady, setFeedbackReady] = useState(false);
-  const [firstMessage, setFirstMessage] = useState<FeedbackMessage | null>(null);
+  const [isDialogueDone, setIsDialogueDone] = useState(false);
+  const [isAdvancingNext, setIsAdvancingNext] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -199,9 +210,12 @@ export default function FeedbackDialogue({
 
       const result = (await dialogueResponse.json()) as InitialDialogueResponse;
       setFeedbackId(result.feedbackId);
-      setFirstMessage(result.message);
+      setMessages([result.message]);
+      setHasStarted(true);
+      setIsDialogueDone(Boolean(result.done));
       setIsPreparingFeedback(false);
-      setFeedbackReady(true);
+
+      requestAnimationFrame(() => composerRef.current?.focus());
     } catch (error) {
       console.error("Failed to prepare feedback dialogue:", error);
       setIsPreparingFeedback(false);
@@ -211,16 +225,6 @@ export default function FeedbackDialogue({
         variant: "destructive",
       });
     }
-  };
-
-  const startFeedbackDialogue = async () => {
-    if (!firstMessage) return;
-
-    setMessages([firstMessage]);
-    setHasStarted(true);
-    setFeedbackReady(false);
-
-    requestAnimationFrame(() => composerRef.current?.focus());
   };
 
   const addMessage = (role: "student" | "teacher", content: string) => {
@@ -250,6 +254,7 @@ export default function FeedbackDialogue({
 
       const result = (await response.json()) as TeacherResponsePayload;
       addMessage("teacher", result.response.content);
+      setIsDialogueDone(Boolean(result.done));
     } catch (error) {
       console.error("Failed to get teacher response:", error);
       toast({
@@ -259,6 +264,34 @@ export default function FeedbackDialogue({
       });
     } finally {
       setIsProcessingTeacher(false);
+      requestAnimationFrame(() => composerRef.current?.focus());
+    }
+  };
+
+  const handlePresentNext = async () => {
+    if (!feedbackId || isProcessingTeacher || isAdvancingNext || isDialogueDone) return;
+
+    setIsAdvancingNext(true);
+    try {
+      const response = await apiRequest("POST", "/api/feedback-dialogue/next", {
+        conversationId,
+        feedbackId,
+      });
+
+      const result = (await response.json()) as NextFeedbackPayload;
+      if (result?.message) {
+        setMessages((prev) => [...prev, result.message]);
+      }
+      setIsDialogueDone(Boolean(result.done));
+    } catch (error) {
+      console.error("Failed to advance feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to advance to the next feedback comment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAdvancingNext(false);
       requestAnimationFrame(() => composerRef.current?.focus());
     }
   };
@@ -300,48 +333,8 @@ export default function FeedbackDialogue({
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-slate-600">Preparing your text feedback...</p>
+          <p className="text-slate-600">The AI is preparing your feedback. This might take up to 30 seconds</p>
         </div>
-      </div>
-    );
-  }
-
-  if (feedbackReady && !hasStarted) {
-    return (
-      <div className="flex items-center justify-center min-h-96 px-4">
-        <Card className="max-w-2xl w-full border-slate-200 shadow-lg">
-          <CardContent className="pt-8 pb-8">
-            <div className="text-center space-y-6">
-              {onBack && (
-                <div className="flex justify-start">
-                  <Button type="button" variant="outline" onClick={onBack}>
-                    <ArrowLeft className="mr-2 w-4 h-4" />
-                    Back to Test Feedback
-                  </Button>
-                </div>
-              )}
-              <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
-                <MessageSquare className="w-10 h-10 text-purple-600" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-slate-800">
-                  Feedback Ready - Conversation {conversationNumber}
-                </h2>
-                <p className="text-slate-600 leading-relaxed">
-                  Your coach feedback has been prepared. When you start, the dialogue will continue as a text conversation with chat bubbles instead of voice.
-                </p>
-              </div>
-              <Button
-                onClick={startFeedbackDialogue}
-                size="lg"
-                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
-              >
-                <Sparkles className="mr-2 w-5 h-5" />
-                Start Feedback Dialogue
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -364,11 +357,9 @@ export default function FeedbackDialogue({
               <MessageSquare className="w-6 h-6 text-purple-600" />
             </div>
             <div className="flex-1 space-y-2">
-              <h2 className="text-2xl font-bold text-slate-800">
-                Text Feedback Dialogue - Conversation {conversationNumber}
-              </h2>
+              <h2 className="text-2xl font-bold text-slate-800">Feedback</h2>
               <p className="text-slate-600 leading-relaxed">
-                Read the coach feedback, respond in text, and keep the dialogue focused on how the conversation was communicated.
+                Conversation {conversationNumber}: read the coach feedback, respond in text, and keep the dialogue focused on how the conversation was communicated.
               </p>
             </div>
           </div>
@@ -502,6 +493,19 @@ export default function FeedbackDialogue({
             </div>
           </div>
 
+          {latestTeacherMessage && !isDialogueDone && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handlePresentNext()}
+                disabled={isProcessingTeacher || isAdvancingNext}
+              >
+                Present next feedback comment
+              </Button>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700" htmlFor="feedback-composer">
@@ -515,7 +519,7 @@ export default function FeedbackDialogue({
                 onKeyDown={handleComposerKeyDown}
                 placeholder="Type your response here. Press Enter to send, or Shift+Enter for a new line."
                 className="min-h-[120px] resize-none"
-                disabled={isProcessingTeacher}
+                disabled={isProcessingTeacher || isAdvancingNext}
               />
             </div>
 
@@ -533,7 +537,7 @@ export default function FeedbackDialogue({
                 </Button>
                 <Button
                   onClick={() => void handleSubmit()}
-                  disabled={isProcessingTeacher || !draftMessage.trim()}
+                  disabled={isProcessingTeacher || isAdvancingNext || !draftMessage.trim()}
                   className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
                 >
                   <Send className="mr-2 w-4 h-4" />

@@ -140,6 +140,11 @@ export default function FeedbackRoot({ conversationId, conversationNumber, onCom
         >
           {isStarting ? "Preparing feedback..." : "Start Feedback"}
         </Button>
+        {isStarting && (
+          <p className="mt-3 text-sm text-slate-600">
+            The AI is preparing your feedback. This might take up to 30 seconds
+          </p>
+        )}
       </div>
     </div>
   );

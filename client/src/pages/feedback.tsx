@@ -245,7 +245,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-slate-600">Analyzing your conversation...</p>
+          <p className="text-slate-600">The AI is preparing your feedback. This might take up to 30 seconds</p>
         </div>
       </div>
     );
@@ -268,7 +268,7 @@ export default function FeedbackPage({ conversationId, conversationNumber, onNex
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
           <TrendingUp className="text-white text-2xl w-8 h-8" />
         </div>
-        <h2 className="text-3xl font-bold text-slate-800">Your Performance Feedback</h2>
+        <h2 className="text-3xl font-bold text-slate-800">Feedback</h2>
         <p className="text-lg text-slate-600">
           {conversationNumber === 1 ? "First" : "Second"} conversation completed! Here's how you did:
         </p>
