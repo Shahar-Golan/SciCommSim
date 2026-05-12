@@ -437,52 +437,66 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
             className="flex-1 overflow-y-auto w-full border border-slate-200 rounded"
             data-testid="consent-form-scroll-area"
           >
-            <div className="p-4 space-y-4 text-sm text-slate-700">
-              <p className="font-semibold">Consent - Science Communication Training</p>
-              
-              <p className="font-semibold mt-4">Dear Participant,</p>
-              
+            <div className="p-4 space-y-5 text-sm text-slate-700 leading-relaxed">
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-800 text-base">
+                  Using an LLM-based simulator to train students and researchers in science communication
+                </p>
+                <p className="text-slate-600 text-sm">
+                  Prof. Ayelet Baram-Tsabari1, Prof. Ofra Amir2, Dr. Tzipora Rakedzon3, Dr. Elad Yacobson1,2
+                </p>
+                <div className="text-xs text-slate-600 space-y-0.5">
+                  <p>1 - Faculty of Education in Science and Technology</p>
+                  <p>2 - Faculty of Data and Decision Science</p>
+                  <p>3 - Department of Humanities and Arts</p>
+                </div>
+              </div>
+
+              <p className="font-semibold text-slate-800">Dear Participant,</p>
+
               <p>
                 The purpose of this study is to investigate whether large language models (LLMs), such as GPT, can assist students, scientists, and researchers in enhancing their science communication skills. To that end, we developed an LLM-based training app that enables students to practice voice conversations and receive feedback.
               </p>
 
               <p>
-                As part of the study, you will speak twice with a GPT-based application and complete a short survey about your learning experience. The entire task will take approximately 15–20 minutes. Completing the task is a required part of the course as part of your science communication training. However, it is entirely your choice whether to allow the use of your conversation transcripts for research purposes. By giving your consent, you agree that the transcripts of your dialogues and your survey responses may be used for research. You may decline this use without any impact on your course evaluation. The course instructor will not know which students agreed to participate and which did not.
+                As part of the study, you will engage in two short voice-based conversations with a GPT-based application and complete a short survey about your learning experience. The entire task will take approximately 15–20 minutes.
               </p>
 
-              <p className="font-semibold mt-4">Risks:</p>
               <p>
-                There are no known risks associated with participation in this study. However, since the simulator is based on OpenAI's GPT-4o model, your conversation data may be used by OpenAI to further train or improve its systems. We therefore encourage you to think carefully about what you choose to share in order to avoid disclosing any sensitive information.
+                Completing the task is a required component of the course as part of your science communication training. However, it is entirely your choice whether to allow the use of your conversation transcripts and audio recordings for research purposes. By giving your consent, you agree that the transcripts of your dialogues, the audio recordings of your conversations with the simulator and your survey responses may be used for research. You may decline this use without any impact on your course evaluation. The course instructor will not know which students agreed to participate and which did not.
               </p>
 
-              <p className="font-semibold mt-4">Benefits:</p>
               <p>
-                This study offers you an opportunity to practice and enhance your science communication skills while also helping us improve and refine the LLM-based simulator for future learners.
+                <span className="font-semibold text-slate-800">Risks:</span> There are no known risks associated with participation in this study. However, since the simulator is based on OpenAI’s GPT model, your conversation data may be used by OpenAI to train further or improve its systems. We therefore encourage you to think carefully about what you choose to share to avoid disclosing any sensitive information.
               </p>
 
-              <p className="font-semibold mt-4">Compensation:</p>
               <p>
-                Participation does not include financial compensation. The task itself is part of the course, but participation in the research is voluntary. You may withdraw from the research component at any time without affecting your course evaluation.
+                <span className="font-semibold text-slate-800">Benefits:</span> This study offers you an opportunity to practice and enhance your science communication skills while also helping us improve and refine the LLM-based simulator for future learners.
               </p>
 
-              <p className="font-semibold mt-4">Privacy:</p>
               <p>
-                All information you provide will be kept confidential. You will be identified in the simulator and the follow-up survey using a unique student number, rather than your name, to protect your privacy. Your dialogue transcripts will be stored in a secure, password-protected database accessible only to authorized members of the research team. Any publications resulting from this study will not include identifying details without your explicit consent.
+                <span className="font-semibold text-slate-800">Compensation:</span> Participation does not include financial compensation. The task itself is part of the course, but participation in the research is voluntary. You may withdraw from the research component at any time without affecting your course evaluation.
               </p>
 
-              <p className="font-semibold mt-4">Principal Investigators:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Dr. Elad Yacobson, Faculty of Data and Decision Sciences & Faculty of Education in Science and Technology</li>
-                <li>Dr. Tzipora Rakedzon, Department of Humanities and Arts</li>
-                <li>Prof. Ayelet Baram-Tsabari, Faculty of Education in Science and Technology</li>
-                <li>Prof. Ofra Amir, Faculty of Data and Decision Sciences</li>
-                <li>Mr. Shahar Golan, Faculty of Data and Decision Sciences</li>
-              </ul>
-
-              <p className="mt-4">
-                If you have any questions, you may contact Dr. Elad Yacobson at: <span className="font-semibold">eladyacobson@campus.technion.ac.il</span>
+              <p>
+                <span className="font-semibold text-slate-800">Privacy:</span> All information you provide will be kept confidential. To ensure your privacy is protected, all your data – email address (provided for identification), dialogue transcripts, audio recordings and survey responses – will be stored in a secure, password-protected database accessible only to authorized members of the research team. Any publications resulting from this study will not include identifying details without your explicit consent.
               </p>
 
+              <div className="space-y-2">
+                <p className="font-semibold text-slate-800">Principal Investigators:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>
+                    Dr. Elad Yacobson, Faculty of Data and Decision Sciences & Faculty of Education in Science and Technology
+                  </li>
+                  <li>Dr. Tzipora Rakedzon, Department of Humanities and Arts</li>
+                  <li>Prof. Ayelet Baram-Tsabari, Faculty of Education in Science and Technology</li>
+                  <li>Prof. Ofra Amir, Faculty of Data and Decision Sciences</li>
+                </ul>
+              </div>
+
+              <p>
+                If you have any questions, you may contact Dr. Elad Yacobson at: <span className="font-semibold">eladyacobson@campus.technion.ac.il</span>.
+              </p>
             </div>
           </div>
 

@@ -33,15 +33,36 @@ const GROUP_C_EXPAND_PROMPT = "Would you like to expand on this point?";
 const GROUP_C_DONE_MESSAGE =
   "That's all the feedback comments. Thanks for reflecting — if you want to revisit anything later, I’m here to help.";
 
+const GROUP_C_IMPROVEMENT_FOLLOWUPS = [
+  "If you’d like, tell me what you meant in that moment or what you’d change — I’ll help you make it clearer for a layperson.",
+  "Want to unpack this a bit? What were you trying to communicate there, and what’s one simpler way you could phrase it for a non-expert?",
+  "If you’re up for it, share a sentence you might say instead — I can help you refine it so it lands better with a lay audience.",
+];
+
+const GROUP_C_PRESERVE_FOLLOWUPS = [
+  "Want to reflect on this strength? Share what you did that worked (and how you can repeat it next time).",
+  "If you’d like, describe what you did here that was effective — and one concrete way you can intentionally do it again in future conversations.",
+];
+
+function getGroupCFollowUpQuestion(stage: GroupCStage, index: number): string {
+  const safeIndex = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
+
+  if (stage === "preserves") {
+    return GROUP_C_PRESERVE_FOLLOWUPS[safeIndex % GROUP_C_PRESERVE_FOLLOWUPS.length] ?? GROUP_C_EXPAND_PROMPT;
+  }
+
+  return GROUP_C_IMPROVEMENT_FOLLOWUPS[safeIndex % GROUP_C_IMPROVEMENT_FOLLOWUPS.length] ?? GROUP_C_EXPAND_PROMPT;
+}
+
 function formatTeacherPayload(prefix: string, payload: GroupCStagePayload): string {
   return `${prefix}\n\n${JSON.stringify(payload, null, 2)}`;
 }
 
-function buildPointPayload(stage: GroupCStage, point: string): GroupCStagePayload {
+function buildPointPayload(stage: GroupCStage, point: string, index: number): GroupCStagePayload {
   if (stage === "preserves") {
     return {
       stage,
-      follow_up_question: "Want to reflect on this strength? Share what you did that worked (and how you can repeat it next time).",
+      follow_up_question: getGroupCFollowUpQuestion(stage, index),
       preserve_points: [point],
       improvement_points: [],
     };
@@ -49,8 +70,7 @@ function buildPointPayload(stage: GroupCStage, point: string): GroupCStagePayloa
 
   return {
     stage,
-    follow_up_question:
-      "If you’d like, tell me what you meant in that moment or what you’d change — I’ll help you make it clearer for a layperson.",
+    follow_up_question: getGroupCFollowUpQuestion(stage, index),
     improvement_points: [point],
     preserve_points: [],
   };
@@ -220,7 +240,7 @@ function makeCurrentPointMessage(state: GroupCState) {
   const label = state.current_stage === "preserves" ? "Strength to preserve" : "Improvement";
   const prefix = total > 0 ? `${label} ${index + 1} of ${total}` : "Feedback";
 
-  return makeTeacherMessage(formatTeacherPayload(prefix, buildPointPayload(state.current_stage, point)));
+  return makeTeacherMessage(formatTeacherPayload(prefix, buildPointPayload(state.current_stage, point, index)));
 }
 
 function buildAdvanceResult(state: GroupCState): {
