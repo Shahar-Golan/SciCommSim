@@ -1,9 +1,6 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -11,11 +8,15 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Optimize connection pool for faster responses
-export const pool = new Pool({ 
+// Create a standard pg Pool (Azure requires SSL)
+export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 5, // Reduced max connections to minimize WebSocket issues
-  idleTimeoutMillis: 20000, // Keep connections alive
-  connectionTimeoutMillis: 10000, // Allow more time for connection
+  max: 5,
+  idleTimeoutMillis: 20000,
+  connectionTimeoutMillis: 10000,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
-export const db = drizzle({ client: pool, schema });
+
+export const db = drizzle(pool);
