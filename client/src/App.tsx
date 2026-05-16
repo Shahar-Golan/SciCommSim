@@ -254,7 +254,13 @@ function App() {
         );
       
       case "thankYou":
-        return <ThankYou onAbout={handleShowAbout} onViewSummary={handleShowSessionSummary} />;
+        return (
+          <ThankYou
+            sessionId={sessionData.sessionId}
+            onAbout={handleShowAbout}
+            onViewSummary={handleShowSessionSummary}
+          />
+        );
       
       case "admin":
         return <AdminDashboard />;

@@ -315,8 +315,14 @@ export default function Survey({ sessionId, onNext }: SurveyProps) {
     setIsSubmitting(true);
     try {
       await apiRequest("PATCH", `/api/training-sessions/${sessionId}`, {
+<<<<<<< HEAD
         helpfulnessRating,
         experienceFeedback: buildSurveyTextResponse(responses) || null,
+=======
+        helpfulnessRating: parseInt(helpfulnessRating),
+        experienceFeedback: experienceFeedback.trim() || null,
+        completedAt: new Date().toISOString(),
+>>>>>>> no-prossody
       });
 
       onNext();

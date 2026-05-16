@@ -32,6 +32,8 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
   const [showEndConfirmation, setShowEndConfirmation] = useState(false);
   const voiceRecorderRef = useRef<VoiceRecorderHandle>(null);
   const wasPausedBeforeEndDialogRef = useRef(false);
+  const pauseStartedAtRef = useRef<number | null>(null);
+  const prevPausedRef = useRef<boolean>(isConversationPaused);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -51,6 +53,30 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
     return () => clearInterval(timer);
   }, [startTime, isConversationPaused]);
+
+  // When we pause, we want elapsed time to freeze; when we resume, continue from the paused moment.
+  // We do this by shifting `startTime` forward by the time spent paused.
+  useEffect(() => {
+    if (!startTime) return;
+
+    const wasPaused = prevPausedRef.current;
+    const isPaused = isConversationPaused;
+
+    if (!wasPaused && isPaused) {
+      pauseStartedAtRef.current = Date.now();
+    }
+
+    if (wasPaused && !isPaused) {
+      const pauseStartedAt = pauseStartedAtRef.current;
+      if (pauseStartedAt) {
+        const pausedDurationMs = Date.now() - pauseStartedAt;
+        setStartTime(prev => (prev ? new Date(prev.getTime() + pausedDurationMs) : prev));
+        pauseStartedAtRef.current = null;
+      }
+    }
+
+    prevPausedRef.current = isPaused;
+  }, [isConversationPaused, startTime]);
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -275,6 +301,9 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
   const openEndConfirmation = () => {
     wasPausedBeforeEndDialogRef.current = isConversationPaused;
+
+    // Pause the mic recorder too (if it is actively recording)
+    voiceRecorderRef.current?.pauseRecording();
     setIsConversationPaused(true);
     setShowEndConfirmation(true);
   };
@@ -284,6 +313,10 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
 
     if (!open) {
       setIsConversationPaused(wasPausedBeforeEndDialogRef.current);
+
+      if (!wasPausedBeforeEndDialogRef.current) {
+        voiceRecorderRef.current?.resumeRecording();
+      }
     }
   };
 
@@ -291,7 +324,7 @@ export default function Conversation({ conversationNumber, sessionId, onNext }: 
     setShowEndConfirmation(false);
     setIsConversationPaused(wasPausedBeforeEndDialogRef.current);
 
-    if (!wasPausedBeforeEndDialogRef.current && isConversationPaused) {
+    if (!wasPausedBeforeEndDialogRef.current) {
       voiceRecorderRef.current?.resumeRecording();
     }
   };

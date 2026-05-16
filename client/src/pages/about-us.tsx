@@ -66,7 +66,7 @@ export default function AboutUs({ onBack }: AboutUsProps) {
               </p>
               
               <p>
-                The tool is based on OpenAI's GPT-4o large language model.
+                The tool is based on OpenAI's GPT-5 large language model.
               </p>
               
               <p>

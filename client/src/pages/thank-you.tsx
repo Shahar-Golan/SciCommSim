@@ -1,12 +1,47 @@
-import { Heart, ArrowRight, Users, BookOpen, Info, FileText } from "lucide-react";
+import { Heart, ArrowRight, Users, BookOpen, Info, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 
 interface ThankYouProps {
+  sessionId: string;
   onAbout?: () => void;
   onViewSummary?: () => void;
 }
 
-export default function ThankYou({ onAbout, onViewSummary }: ThankYouProps) {
+export default function ThankYou({ sessionId, onAbout, onViewSummary }: ThankYouProps) {
+  const downloadCompletionCodePdf = async () => {
+    const code = sessionId;
+
+    const pdfDoc = await PDFDocument.create();
+    // Small single page; contains only the code ("blank" aside from the text)
+    const page = pdfDoc.addPage([420, 220]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+    const width = page.getWidth();
+    const height = page.getHeight();
+
+    const codeSize = 14;
+    const codeWidth = font.widthOfTextAtSize(code, codeSize);
+    page.drawText(code, {
+      x: Math.max(12, (width - codeWidth) / 2),
+      y: (height - codeSize) / 2,
+      size: codeSize,
+      font,
+    });
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `completion-code-${code}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="text-center space-y-8">
       <div className="space-y-4">
@@ -53,6 +88,37 @@ export default function ThankYou({ onAbout, onViewSummary }: ThankYouProps) {
           </p>
         </div>
       )}
+
+      {/* Completion Code + PDF */}
+      <div className="max-w-lg mx-auto">
+        <div className="bg-white border border-slate-200 rounded-xl p-6 text-left space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800">Your completion code</h3>
+            <p className="text-sm text-slate-600 mt-1">
+              Use this code to prove you completed the simulator.
+            </p>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+            <p className="text-xs text-slate-500 mb-1">Completion code</p>
+            <p className="font-mono text-sm text-slate-800 break-all">{sessionId}</p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-slate-600">
+              Download this file and upload it into the submition box in your course website
+            </p>
+            <Button
+              onClick={downloadCompletionCodePdf}
+              className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+              data-testid="button-download-completion-code"
+            >
+              <Download className="mr-2 w-4 h-4" />
+              Download completion code (PDF)
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* About Us Button */}
       {onAbout && (
