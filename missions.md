@@ -4,7 +4,6 @@
 4. Important NOTE: nothing in the UI should be changed! we are only changing the backend. The UI remains the same.
 
 
-<<<<<<< HEAD
 5. Modify the system prompt for groups A, B+C based on the new prompts I have uploded.
 
 
@@ -72,24 +71,23 @@ Additional guidelines:
 It will take a conversation, stream it into the two agents we created and your role is to examine the output and make the nesseceery changes based on it.
 
 
-7. fix the UI in Group B to rectangle the exact quotes from the conversation.
-8. Force the feedback to produce exactly 3 points to improve, and 2 points of strenghts.
+### Amazing way to view DB in Azure: npx drizzle-kit studio
+
+7. fix the UI in Group B+C to rectangle the quotes it qoute from the conversation.  --> client\src\pages\feedback-group-b.tsx, client\src\pages\feedback-group-c.tsx
+
+8. Force the feedback to produce exactly 3 points to improve, and 2 points of strenghts (I think now it says 3 and one, just modify this specific instruction in the system prompt.)
+
 9. In group B+C force the quotes from the conversation in b
+
 10. Verify that the context in group C includes the former back and forth conversation.
+
 11. Verify that in Group C, the agent that respond ins wearing a hat of a sceince communication teacher and not a global LLM.
-=======
-3. Change the AI models at the project: NEED TO GENERATE NEW API KEY !!!
-I need to ask Ofra to expand the premissions.
-    a) for the regular "layer person" simulator phase - change to "GPT-5"
-    b) For the feedback phase, where the model receive a heavy system prompt + transcript, define a "thinking" version of GPT.
+Maybe add a system prompt in the ai_prompts DB table to store this instruction. 
+scan this file:
+C:\Users\Shahar Golan\VisualStudioProjects\SciCommSim\server\feedback-group-c-routes.ts
+Verify if those instructions is exists and where it exists, and show it to me (dont make changes)
 
-4. The order of the reflective questionnaires: NEED TO WAIT FOR ELAD TO SEND ME
-    a) demographic data - part of it is already exists in regular_survey.json. we need to add also a question to select educational institution (list 5 high unviersties in Israel).
-    b) explainability questionnaire - explainability_survey.json. need to modify based on the file from Elad
-    c) "old" reflective questionnaire (the one that was in the previous simulator) - we need to verify that it's exists.
-
-5. 
-    a) Create an automatic code/ ID that will be presented to the user in the end of all the phases (reached the survey part and click end)! maybe we dont need to genarate new, but provide the same key from the data base, but wee have to ensure the key is unique, and we will later on will know how to connect them.
-    b) Generate a small sized PDF that contains the code, and add a download button so the user could click it and download a blank file with the text code inside it.
-    c) Add text instructions above the button, "Download this file and upload it into the submition box in your course website"
->>>>>>> no-prossody
+12. remove the tempature thing from the new GPT-5 model since it has no such variable.
+Just search the key word: "temperature". In case we are using GPT-5, delete it.
+13. solved the caching of the system prompt in Group-C
+14. Add the system prompt for the layer-person conversation.

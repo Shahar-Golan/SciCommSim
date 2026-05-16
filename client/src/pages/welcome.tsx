@@ -463,11 +463,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
               </p>
 
               <p>
-<<<<<<< HEAD
                 Completing the task is a required component of the course as part of your science communication training. However, it is entirely your choice whether to allow the use of your conversation transcripts and audio recordings for research purposes. By giving your consent, you agree that the transcripts of your dialogues, the audio recordings of your conversations with the simulator and your survey responses may be used for research. You may decline this use without any impact on your course evaluation. The course instructor will not know which students agreed to participate and which did not.
-=======
-                There are no known risks associated with participation in this study. However, since the simulator is based on OpenAI's GPT-5 model, your conversation data may be used by OpenAI to further train or improve its systems. We therefore encourage you to think carefully about what you choose to share in order to avoid disclosing any sensitive information.
->>>>>>> no-prossody
               </p>
 
               <p>

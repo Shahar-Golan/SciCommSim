@@ -7,9 +7,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
 });
 
-<<<<<<< HEAD
 type GroupCPhase = "awaiting_expand_decision" | "discussing_point" | "completed";
-=======
+
 const FEEDBACK_THINKING_MODEL =
   process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-5";
 
@@ -32,7 +31,6 @@ type DialogueItem = {
   kind: "strength" | "improvement";
   text: string;
 };
->>>>>>> no-prossody
 
 type GroupCStage = "improvements" | "preserves";
 

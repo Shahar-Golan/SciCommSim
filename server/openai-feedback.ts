@@ -518,13 +518,8 @@ export async function generateFeedback(
       const combined = [...preservePoints, ...improvementPoints];
       const hasExplanations = groupBPointsHaveExplanations(combined);
 
-<<<<<<< HEAD
       if (!preserveQuotesOk || !improvementQuotesOk || !hasExplanations) {
-        const retry = await requestOnce(
-=======
-      if (!hasValidQuotes || !hasExplanations) {
         const { completion: retry } = await requestOnce(
->>>>>>> no-prossody
           0,
           "IMPORTANT: Do not quote the layperson. Improvement points must include at least one direct STUDENT quote copied verbatim from the transcript (do not invent quotes). Also include diagnosis + actionable suggestion; quote-only bullets are invalid."
         );
