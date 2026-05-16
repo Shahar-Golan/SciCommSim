@@ -11,7 +11,8 @@ interface FeedbackGroupBProps {
 
 function renderTextWithHighlightedQuotes(text: string) {
   const nodes: Array<JSX.Element | string> = [];
-  const quoteRegex = /"([^"]+)"/g;
+  // Match: straight double quotes, curly quotes (U+201C U+201D), or single quotes
+  const quoteRegex = /(["\u201c])(.+?)(["\u201d])|'(.+?)'/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -19,7 +20,8 @@ function renderTextWithHighlightedQuotes(text: string) {
   while ((match = quoteRegex.exec(text)) !== null) {
     const matchIndex = match.index;
     const fullMatch = match[0] || "";
-    const quoteText = match[1] || "";
+    // Extract content: group 2 for double quotes, group 4 for single quotes
+    const quoteText = match[2] || match[4] || "";
 
     if (matchIndex > lastIndex) {
       nodes.push(text.slice(lastIndex, matchIndex));

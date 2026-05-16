@@ -488,11 +488,16 @@ export function registerFeedbackGroupCRoutes(app: Express): void {
 
       const requestOnce = async (model: string) => {
         try {
-          return await openai.chat.completions.create({
+          // GPT-5 doesn't support temperature parameter
+          const createParams: any = {
             model,
             messages: messagesForLLM,
-            temperature: 0.7,
-          });
+          };
+          if (!model.includes("gpt-5")) {
+            createParams.temperature = 0.7;
+          }
+          
+          return await openai.chat.completions.create(createParams);
         } catch (error) {
           if (isTemperatureUnsupportedError(error)) {
             console.warn(

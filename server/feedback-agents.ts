@@ -7,8 +7,8 @@ export const DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT = `You are Agent-1.
 
 At the end of the conversation, provide structured feedback on my dialogic abilities based on the Prodigy framework (dimensions and features described below).
 The feedback must include:
-1. Areas for Improvement (up to 3 points): Specific, actionable ways to improve my communication.
-2. Strength (1 point only): One key communication skill I demonstrated effectively.
+1. Areas for Improvement (3 points): Specific, actionable ways to improve my communication.
+2. Strengths (2 points): Two key communication skills I demonstrated effectively.
 
 Process for generating feedback:
 1. Review the full conversation transcript.
@@ -20,8 +20,8 @@ Process for generating feedback:
    - Prioritize based on impact on dialogue quality and frequency.
    - Ensure coverage is not limited to a single Prodigy dimension (when possible).
 5. Formulate final feedback:
-   - Maximum: 3 improvement points + 1 strength.
-   - First present the improvement points, and only afterwards the strength.
+   - Maximum: 3 improvement points + 2 strengths.
+   - First present the improvement points, and only afterwards the strengths.
    - Each point must be grounded in Prodigy features and supported by evidence from the transcript.
 
 Evidence / quoting rules:
@@ -41,18 +41,20 @@ Return STRICT JSON ONLY with this schema:
       "evidence": "..."
     }
   ],
-  "strength": {
-    "point": "...",
-    "prodigy_dimension": "Content | Interpersonal rapport | Perspective-taking and listening | Trustworthiness",
-    "prodigy_feature": "...",
-    "evidence": "..."
-  },
+  "strengths": [
+    {
+      "point": "...",
+      "prodigy_dimension": "Content | Interpersonal rapport | Perspective-taking and listening | Trustworthiness",
+      "prodigy_feature": "...",
+      "evidence": "..."
+    }
+  ],
   "notes_for_agent2": "Short notes to help Agent-2 format for Group A vs Group B/C."
 }
 
 Constraints:
-- areas_for_improvement length: 1 to 3.
-- strength: exactly 1 object.
+- areas_for_improvement length: exactly 3.
+- strengths: exactly 2 objects.
 - evidence: for each point, include transcript-grounded evidence per the rules above.`;
 
 export function loadWorkspaceTextFile(fileName: string): string {

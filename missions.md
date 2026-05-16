@@ -89,5 +89,7 @@ Verify if those instructions is exists and where it exists, and show it to me (d
 
 12. remove the tempature thing from the new GPT-5 model since it has no such variable.
 Just search the key word: "temperature". In case we are using GPT-5, delete it.
-13. solved the caching of the system prompt in Group-C
-14. Add the system prompt for the layer-person conversation.
+If you see it in context of gpt-4o, leave it as is.
+
+13. solved the caching of the system prompt in Group-C.
+We have to examine th emulti turn feture in API calls and how its been done.

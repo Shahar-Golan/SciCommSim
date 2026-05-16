@@ -51,8 +51,8 @@ THE NEXT BULLET, IN GREEN FONT, IS ONLY FOR GROUP ‘A’ (CONTROL GROUP – ‘
 Structure of Feedback Points:
 When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
 Output format:
-•	Areas for Improvement (up to 3 points): Short, actionable recommendations. 
-•	Strength (1 point): One concise statement describing what was done well. 
+•	Areas for Improvement (exactly 3 points): Short, actionable recommendations. 
+•	Strengths (exactly 2 points): Two concise statements describing what was done well. 
 Guidelines:
 •	Each point should be brief (1–2 sentences maximum). 
 •	Focus on clear, actionable advice, without justification or detailed explanation. 
@@ -65,17 +65,17 @@ Areas for improvement:
 1.	Reduce the use of jargon and use simpler, more accessible language. 
 2.	Invite your conversation partner to share their thoughts more actively. 
 3.	Show more empathy when responding to concerns raised by the conversation partner. 
-Strength: You clearly explained the importance and real-world relevance of your research.
+Strengths: You clearly explained the importance and real-world relevance of your research. You also effectively answered the question about the role of genes in vision loss.
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["..."],
+  "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain 1 to 3 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT include any transcript quotes or paraphrases.`,
   },
   B: {
@@ -116,13 +116,13 @@ Additional guidelines:
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["..."],
+  "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain 1 to 3 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
   C: {
@@ -164,13 +164,13 @@ Additional guidelines:
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["..."],
+  "preserve_points": ["...", "..."],
   "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain 1 to 3 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
 };
@@ -447,12 +447,17 @@ export async function generateFeedback(
       ];
 
       try {
-        const completion = await openai.chat.completions.create({
+        // GPT-5 doesn't support temperature parameter
+        const createParams: any = {
           model,
           messages,
           response_format: { type: "json_object" },
-          temperature,
-        });
+        };
+        if (!model.includes("gpt-5")) {
+          createParams.temperature = temperature;
+        }
+        
+        const completion = await openai.chat.completions.create(createParams);
         return { completion, usedModel: model };
       } catch (error) {
         if (isTemperatureUnsupportedError(error)) {
@@ -496,13 +501,13 @@ export async function generateFeedback(
 
     let preservePoints = normalizePointsRange(
       parsed.preserve_points,
-      1,
-      1,
+      2,
+      2,
       "You communicated effectively with a layperson."
     );
     let improvementPoints = normalizePointsRange(
       parsed.improvement_points,
-      1,
+      3,
       3,
       "Simplify jargon and add one concrete example to clarify your point."
     );
@@ -526,13 +531,13 @@ export async function generateFeedback(
         const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
         preservePoints = normalizePointsRange(
           retryParsed.preserve_points,
-          1,
-          1,
+          2,
+          2,
           "You communicated effectively with a layperson."
         );
         improvementPoints = normalizePointsRange(
           retryParsed.improvement_points,
-          1,
+          3,
           3,
           "Simplify jargon and add one concrete example to clarify your point."
         );
