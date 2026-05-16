@@ -1,0 +1,44 @@
+student: Okay. Okay.
+
+Ayelet: So, Hinam, what do you do with the Technion?
+
+student: Oh, from the top. Okay.
+
+student: I study bird navigation, which means how birds find their way in the world and what does their brain do when they do so.
+
+Ayelet: Like when they go from Africa to Europe in the summer, right? Yeah.
+
+student: So that's the goal. Yeah. To understand their like large scale. We start from full scale and doing it in a small room. But yeah.
+
+Ayelet: Ah, but if they're in a small room, maybe they can't use the sun. They can't use, I don't know, the magnetic field. I don't know. There's magnetic field in a room. I have no idea. Can they use it?
+
+student: Okay. So technically we can mimic or we could fake all those stuff.
+
+student: We start from isolating things, trying to look at one thing at a time. But yeah, you could create magnetic fields. You could create the effect of the sun in a room. Yeah.
+
+Ayelet: So what did you find out? Yeah. Yeah. Yeah. Which animals do you work with?
+
+student: I work with quails, which are those like chickens, the six. They're very simple to maintain and they're very basic. They don't fly very much. They're very nice. You can train them. And we actually didn't find anything yet. And that's mostly because all the methods that people use to study such brain things were developed for more standard animals. Right. So we also used like mice and rats and even monkeys that are like mainly used in science. So when we wanted to approach our birds, our quails or birds in general, we were in a bit of an issue because the tools that were good for mice just didn't work for us.
+
+Ayelet: What do you mean the tools? What tools? Like giving them cards and seeing what they pick or what?
+
+student: Okay. So there are many, this is more of a behavioral tool, but there are many tools that are used to see the brain activity, to see what it looks like. Like MRI?
+
+Ayelet: You do MRI to chickens?
+
+student: We could do MRI. We did it. It's a bit, we want to look at a specific cell. We want a better resolution. MRI isn't such a good resolution for our purposes. So the method I'm trying to implant in birds is using this genetic tool that practically makes brain cells light up when they're active. So then you could put a microscope or a camera and just see which brain cells light up when the bird is doing this or that.
+
+Ayelet: But how do you see with the camera inside the brain?
+
+student: So we do this very, very minimal surgery where we open a four millimeter hole in the skull of the chicken. We put this thing, this material that I was telling you about, the lighting up material in the brain. And then we just close this hole with a camera on it. And we fixate it using...
+
+Ayelet: Would you like someone to do that to you? I mean... It's very nice that you're curious and you look like a really nice person and everything. But would you, I mean, would you like someone coming for their own curiosity about how birds,
+
+Ayelet: I don't know, find a way to do this?
+
+student: I mean, I agree that it's not the nicest thing thinking about it. But we also follow very, very strict ethics rules. Like every experiment we do, it has to pass this ethics committee, making sure that the bird isn't suffering. Then it isn't in any pain. Then it's not in any pain. Then it's not in any pain. Then it gets the best care and that the experiment is actually necessary. And we don't just waste birds.
+
+Ayelet: How can you say it's necessary? It's for curiosity. I mean, we can all live without knowing how the birds, your chickens, move in the room.
+
+student: I mean, that's true. We could also live without penicillin and be sturdy and die happily. But the thing about basic science is you never know where it's going to go. Like science needs room to develop. Science needs to go to different directions, to study different mechanisms. By studying the bird's brain, we could learn a lot about evolution of our brain or different brain types and understand how evolution made some brains work in this way and some brains work in a different way. So this is one thing. The other thing is a lot of engineers or K.I. models or whatever take inspiration. Out of biological mechanisms. So once we know those mechanisms better, we could be inspirational for other technical navigation issues, GPS issues. We know birds navigate so good. Maybe we can use their ability for technology that could maybe save lives.
+
