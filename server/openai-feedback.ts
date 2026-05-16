@@ -1,8 +1,7 @@
 import OpenAI from "openai";
-import fs from "node:fs";
-import path from "node:path";
 import { storage } from "./storage";
 import type { Message } from "@shared/schema";
+import { loadWorkspaceTextFile, formatTranscriptForFeedback, runFeedbackAgent1GlobalAnalysis, DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT } from "./feedback-agents";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
@@ -19,67 +18,142 @@ type FeedbackAnalysisResult = {
   improvement_points: string[];
 };
 
-function loadPromptFile(fileName: string): string {
-  return fs.readFileSync(path.resolve(process.cwd(), "attached_assets", fileName), "utf8").trim();
-}
+// NOTE: We still load Feedback_Prompt.txt for backwards-compatibility and potential future use,
+// but the current Group A/B/C prompts are replaced with the experiment prompts from missions.md.
+loadWorkspaceTextFile("Feedback_Prompt.txt");
+const PRODIGY_FRAMEWORK_TEXT = loadWorkspaceTextFile("prodigy_framework.txt");
 
-const PRODIGY_FEEDBACK_GUIDANCE = loadPromptFile("Feedback_Prompt.txt");
+const FEEDBACK_AGENT1_PROMPT_NAME = "feedback_agent1_global";
 
 const FEEDBACK_ANALYSIS_PROMPT_CONFIG: Record<FeedbackGroup, { name: string; prompt: string }> = {
   A: {
     name: "feedback_analysis_group_a",
-    prompt: `${PRODIGY_FEEDBACK_GUIDANCE}
+    prompt: `GROUP A:
+THE NEXT BULLET, IN GREEN FONT, IS ONLY FOR GROUP ‘A’ (CONTROL GROUP – ‘ZERO EXPLAINABILITY’) IN THE EXPERIMENT:
+Structure of Feedback Points:
+When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
+Output format:
+•	Areas for Improvement (up to 3 points): Short, actionable recommendations. 
+•	Strength (1 point): One concise statement describing what was done well. 
+Guidelines:
+•	Each point should be brief (1–2 sentences maximum). 
+•	Focus on clear, actionable advice, without justification or detailed explanation. 
+•	Do not include evidence, examples from the conversation, or suggested phrasing. 
+•	Avoid repetition – each point should address a distinct aspect of dialogic communication. 
+•	Maintain a neutral, professional tone (avoid praise-heavy or evaluative language). 
+•	Base all feedback implicitly on Prodigy features, but do not explicitly elaborate on them. 
+Here is an example of what such feedback might look like:
+Areas for improvement:
+1.	Reduce the use of jargon and use simpler, more accessible language. 
+2.	Invite your conversation partner to share their thoughts more actively. 
+3.	Show more empathy when responding to concerns raised by the conversation partner. 
+Strength: You clearly explained the importance and real-world relevance of your research.
 
-You are a science communication feedback coach.
-requirements:
-- No references or quotes from transcript.
-- Output exactly 2 preserve points and exactly 3 improvement points.
-- Focus on Prodigy-based feedback for layperson communication.
-Return strict JSON only with this schema:
+IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
+  "preserve_points": ["..."],
   "improvement_points": ["...", "...", "..."]
-}`,
+}
+
+Constraints:
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain 1 to 3 items.
+- Do NOT include any transcript quotes or paraphrases.`,
   },
   B: {
     name: "feedback_analysis_group_b",
-    prompt: `${PRODIGY_FEEDBACK_GUIDANCE}
+    prompt: `GROUP B+C:
 
-You are a science communication feedback coach.
-Generate feedback for Group B.
-Group B requirements:
-- You must include references or quotes from what the student said that made you provide a certain feedback.
-- Every preserve and improvement point must include one direct student quote in double quotes.
-- The quote must support your explanation, not replace it.
-- Each point must include at least one full explanatory clause outside the quote.
-- A point that is only a quote (or mostly a quote) is invalid.
-- Preferred structure for each bullet: observation + impact/reason + quote.
-- Quotes must be copied verbatim from the student's words (do not invent or paraphrase quotes).
-- Do not quote the layperson/interviewer.
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Each point must be one concise sentence.
-- Focus on communication to a layperson (clarity, wording, audience engagement).
-Return strict JSON only with this schema:
+THE NEXT BULLET, IN RED FONT, IS ONLY FOR GROUPS ‘B’ AND ‘C’ IN THE EXPERIMENT:
+
+Structure of feedback points:
+For strengths:
+•	Briefly describe what was done well. 
+•	Reference a concrete example (quote or paraphrase). 
+•	Explain why this aligns with Prodigy. 
+
+For areas for improvement:
+Each point should include:
+1.	Evidence (quote from the conversation) 
+2.	Diagnosis (what was suboptimal or missing, linked to Prodigy) 
+3.	Actionable suggestion (what to do instead) 
+4.	Optional example phrasing 
+
+Use the following as a flexible guideline (not a rigid template):
+•	If something was done suboptimally:
+“You said: ‘___’. This may be problematic because ___ (Prodigy-based explanation). A more effective approach would be to _____. For example: ‘’_______.”
+Here is an example of this type of feedback:
+For instance, if I used too much jargon, you could provide me with the following feedback: “When presenting your research, you said: ‘I explore the use of LLMs for communication training.’ This could be problematic, since a lot of people are not familiar with the term ‘LLMs’, and that could be confusing for them. Instead of ‘LLMs’ you could say something in simpler words that a layperson would understand, like: ‘Artificial Intelligence’ or ‘computer programs’. “
+•	If something was missing (missed opportunity):
+“When you said: ‘___’, this could have been an opportunity to _______. You could have added something like: ‘’_________.”
+Here is an example of this type of feedback:
+For instance, if I didn’t ask even a single open question during the entire conversation, you could provide me with the following feedback: “When talking about the data collection, you said: ‘We’re really struggling with getting participants to sign up for the experiment.’ This could be a great opportunity to ask your conversation partner for their ideas, making them more active in the conversation. You could ask your conversation partner something like: ‘Do you have any ideas or suggestions on how to raise participants’ motivation to sign up for the experiment?’ “.
+
+Additional guidelines:
+•	Be specific and evidence-based – avoid vague or generic feedback. 
+•	Avoid excessive praise or encouragement – focus on constructive, professional feedback. 
+•	Do not repeat similar points – each point should address a distinct issue. 
+•	Use clear, concise language suitable for learning. 
+•	Prioritize actionable insights over exhaustive coverage. 
+
+IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
+  "preserve_points": ["..."],
   "improvement_points": ["...", "...", "..."]
-}`,
+}
+
+Constraints:
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain 1 to 3 items.
+- Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
   C: {
     name: "feedback_analysis_group_c",
-    prompt: `You are a science communication feedback coach.
-Generate feedback for Group C.
-Group C requirements:
-- Include references to what the student said in each point.
-- Keep points suitable for later dialogic coaching.
-- Output exactly 2 short preserve points and exactly 3 short improvement points.
-- Each point must be one concise sentence.
-- Focus on communication to a layperson (clarity, wording, pacing, audience engagement).
-Return strict JSON only with this schema:
+    // Group C shares the same prompt guidelines as Group B for the experiment.
+    prompt: `GROUP B+C:
+
+THE NEXT BULLET, IN RED FONT, IS ONLY FOR GROUPS ‘B’ AND ‘C’ IN THE EXPERIMENT:
+
+Structure of feedback points:
+For strengths:
+•	Briefly describe what was done well. 
+•	Reference a concrete example (quote or paraphrase). 
+•	Explain why this aligns with Prodigy. 
+
+For areas for improvement:
+Each point should include:
+1.	Evidence (quote from the conversation) 
+2.	Diagnosis (what was suboptimal or missing, linked to Prodigy) 
+3.	Actionable suggestion (what to do instead) 
+4.	Optional example phrasing 
+
+Use the following as a flexible guideline (not a rigid template):
+•	If something was done suboptimally:
+“You said: ‘___’. This may be problematic because ___ (Prodigy-based explanation). A more effective approach would be to _____. For example: ‘’_______.”
+Here is an example of this type of feedback:
+For instance, if I used too much jargon, you could provide me with the following feedback: “When presenting your research, you said: ‘I explore the use of LLMs for communication training.’ This could be problematic, since a lot of people are not familiar with the term ‘LLMs’, and that could be confusing for them. Instead of ‘LLMs’ you could say something in simpler words that a layperson would understand, like: ‘Artificial Intelligence’ or ‘computer programs’. “
+•	If something was missing (missed opportunity):
+“When you said: ‘___’, this could have been an opportunity to _______. You could have added something like: ‘’_________.”
+Here is an example of this type of feedback:
+For instance, if I didn’t ask even a single open question during the entire conversation, you could provide me with the following feedback: “When talking about the data collection, you said: ‘We’re really struggling with getting participants to sign up for the experiment.’ This could be a great opportunity to ask your conversation partner for their ideas, making them more active in the conversation. You could ask your conversation partner something like: ‘Do you have any ideas or suggestions on how to raise participants’ motivation to sign up for the experiment?’ “.
+
+Additional guidelines:
+•	Be specific and evidence-based – avoid vague or generic feedback. 
+•	Avoid excessive praise or encouragement – focus on constructive, professional feedback. 
+•	Do not repeat similar points – each point should address a distinct issue. 
+•	Use clear, concise language suitable for learning. 
+•	Prioritize actionable insights over exhaustive coverage. 
+
+IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
+  "preserve_points": ["..."],
   "improvement_points": ["...", "...", "..."]
-}`,
+}
+
+Constraints:
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain 1 to 3 items.
+- Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
 };
 
@@ -87,6 +161,14 @@ async function getFeedbackAnalysisPromptByGroup(group: FeedbackGroup): Promise<s
   const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group] || FEEDBACK_ANALYSIS_PROMPT_CONFIG.C;
   const prompt = await storage.getAiPrompt(config.name);
   return prompt?.prompt || config.prompt;
+}
+
+function wrapAgent2SystemPrompt(basePrompt: string, group: FeedbackGroup): string {
+  if (group === "A") {
+    return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (not the raw transcript).\n- Do NOT include transcript quotes or transcript references.\n- Generate output strictly according to the schema.`;
+  }
+
+  return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (and may include an allowed-quote list).\n- Use Agent-1 analysis as primary guidance.\n- Do NOT quote the layperson.\n- If you include quotes, they must be exact STUDENT quotes (do not invent quotes).\n- Generate output strictly according to the schema.`;
 }
 
 function normalizePoints(points: unknown, requiredCount: number, fallbackPrefix: string): string[] {
@@ -100,6 +182,30 @@ function normalizePoints(points: unknown, requiredCount: number, fallbackPrefix:
   return trimmed;
 }
 
+function normalizePointsRange(
+  points: unknown,
+  minCount: number,
+  maxCount: number,
+  fallback: string,
+): string[] {
+  const min = Number.isFinite(minCount) ? Math.max(0, Math.floor(minCount)) : 0;
+  const max = Number.isFinite(maxCount) ? Math.max(min, Math.floor(maxCount)) : min;
+
+  const items = Array.isArray(points)
+    ? points
+        .filter((item) => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, max)
+    : [];
+
+  while (items.length < min) {
+    items.push(min > 1 ? `${fallback} ${items.length + 1}.` : fallback);
+  }
+
+  return items;
+}
+
 function formatPoints(points: string[]): string {
   return points.map((point) => `- ${point}`).join("\n");
 }
@@ -110,16 +216,34 @@ function normalizeForSearch(text: string): string {
 
 function extractInlineQuotes(text: string): string[] {
   const quotes: string[] = [];
-  const regex = /"([^"]{3,})"/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
-    quotes.push(match[1]);
+  const patterns: RegExp[] = [
+    /"([^"]{3,})"/g,      // straight double quotes
+    /“([^”]{3,})”/g,       // curly double quotes
+    /'([^']{6,})'/g,       // straight single quotes (min length to avoid contractions)
+    /‘([^’]{6,})’/g,       // curly single quotes
+  ];
+
+  for (const pattern of patterns) {
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+      quotes.push(match[1]);
+    }
   }
+
   return quotes;
 }
 
 function extractStudentQuoteSnippets(messages: Message[], limit = 10): string[] {
-  const snippets: string[] = [];
+  const desired = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+  if (desired === 0) {
+    return [];
+  }
+
+  const keywordRegex = /\b(retina|inherited|disease|blind|vision|gene|genes|genetic|mutation|mutated|allele|diagnos|treatment|counsel|founder)\b/i;
+  const smallTalkPenalty = /\b(technion|genius|smart|architecture)\b/i;
+
+  const candidates: Array<{ text: string; score: number; order: number }> = [];
+  let order = 0;
 
   for (const msg of messages) {
     if (msg.role !== "student") {
@@ -130,33 +254,51 @@ function extractStudentQuoteSnippets(messages: Message[], limit = 10): string[] 
       .replace(/\s+/g, " ")
       .split(/[.!?\n]+/)
       .map((part) => part.trim())
-      .filter((part) => part.length >= 24 && part.length <= 160);
+      .filter((part) => part.length >= 24 && part.length <= 180);
 
     for (const part of parts) {
-      snippets.push(part);
-      if (snippets.length >= limit) {
-        return snippets;
-      }
+      const length = part.length;
+      const lengthScore = length >= 60 ? 3 : length >= 40 ? 2 : 1;
+      const keywordScore = keywordRegex.test(part) ? 4 : 0;
+      const penalty = smallTalkPenalty.test(part) ? 3 : 0;
+      const score = lengthScore + keywordScore - penalty;
+
+      candidates.push({ text: part, score, order: order++ });
     }
   }
 
-  return snippets;
+  // Deduplicate by normalized text, keep the highest-scoring occurrence.
+  const byNorm = new Map<string, { text: string; score: number; order: number }>();
+  for (const candidate of candidates) {
+    const norm = normalizeForSearch(candidate.text);
+    const existing = byNorm.get(norm);
+    if (!existing || candidate.score > existing.score) {
+      byNorm.set(norm, candidate);
+    }
+  }
+
+  const ranked = Array.from(byNorm.values()).sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.order - b.order;
+  });
+
+  return ranked.slice(0, desired).map((item) => item.text);
 }
 
 function buildGroupBUserContent(conversationText: string, quoteSnippets: string[]): string {
   if (quoteSnippets.length === 0) {
-    return `TRANSCRIPT:\n${conversationText}`;
+    return `INPUT_CONTEXT:\n${conversationText}`;
   }
 
   const quoteBlock = quoteSnippets.map((snippet, index) => `${index + 1}) ${snippet}`).join("\n");
 
-  return `ALLOWED STUDENT QUOTE SNIPPETS (copy one verbatim into each point and wrap it in double quotes; do not invent quotes):\n${quoteBlock}\n\nTRANSCRIPT:\n${conversationText}`;
+  return `ALLOWED STUDENT QUOTE SNIPPETS (copy verbatim; do not invent quotes):\n${quoteBlock}\n\nINPUT_CONTEXT:\n${conversationText}`;
 }
 
-function groupBQuotesLookValid(points: string[], studentOnlyText: string): boolean {
+function groupBImprovementQuotesLookValid(improvementPoints: string[], studentOnlyText: string): boolean {
   const studentNormalized = normalizeForSearch(studentOnlyText);
 
-  return points.every((point) => {
+  return improvementPoints.every((point) => {
     const quotes = extractInlineQuotes(point);
     if (quotes.length === 0) {
       return false;
@@ -165,8 +307,27 @@ function groupBQuotesLookValid(points: string[], studentOnlyText: string): boole
   });
 }
 
+function groupBPreserveQuotesLookValidOrAbsent(preservePoints: string[], studentOnlyText: string): boolean {
+  const studentNormalized = normalizeForSearch(studentOnlyText);
+
+  return preservePoints.every((point) => {
+    const quotes = extractInlineQuotes(point);
+    if (quotes.length === 0) {
+      // Strengths may reference a paraphrase instead of a quote.
+      return true;
+    }
+    return quotes.every((quote) => studentNormalized.includes(normalizeForSearch(quote)));
+  });
+}
+
 function stripQuotedSegments(text: string): string {
-  return text.replace(/"[^"]*"/g, " ").replace(/\s+/g, " ").trim();
+  return text
+    .replace(/"[^"]*"/g, " ")
+    .replace(/“[^”]*”/g, " ")
+    .replace(/'[^']*'/g, " ")
+    .replace(/‘[^’]*’/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function groupBPointsHaveExplanations(points: string[]): boolean {
@@ -200,6 +361,21 @@ function enforceGroupBExplanations(points: string[], kind: "strength" | "improve
   });
 }
 
+function selectMessagesForFeedback(messages: Message[]): Message[] {
+  // Heuristic: ignore early small-talk / status talk and start around the first research-content student turn.
+  // This keeps feedback focused on dialogic science-communication moments.
+  // NOTE: We intentionally do NOT match generic "PhD" mentions because those often appear in small talk.
+  const researchKeyword = /\b(lab|retina|disease|gene|genes|genetic|mutation|mutated|allele|diagnos|treatment|counsel|founder)\b/i;
+  const index = messages.findIndex((msg) => msg.role === "student" && researchKeyword.test(msg.content));
+  if (index <= 0) {
+    return messages;
+  }
+
+  // Keep a small lead-in for context.
+  const start = Math.max(0, index - 1);
+  return messages.slice(start);
+}
+
 export async function generateFeedback(
   messages: Message[],
   feedbackGroup: FeedbackGroup = "C"
@@ -218,13 +394,29 @@ export async function generateFeedback(
       };
     }
 
-    const systemPrompt = await getFeedbackAnalysisPromptByGroup(feedbackGroup);
-    const conversationText = messages
-      .map((msg) => `${msg.role === "student" ? "Student" : "Layperson"}: ${msg.content}`)
-      .join("\n\n");
+    const messagesForFeedback = selectMessagesForFeedback(messages);
+    const transcriptText = formatTranscriptForFeedback(messagesForFeedback);
 
-    const groupBQuoteSnippets = feedbackGroup === "B" ? extractStudentQuoteSnippets(messages, 12) : [];
-    const userContent = feedbackGroup === "B" ? buildGroupBUserContent(conversationText, groupBQuoteSnippets) : conversationText;
+    const needsQuotes = feedbackGroup === "B" || feedbackGroup === "C";
+    const allowedStudentQuoteSnippets = needsQuotes ? extractStudentQuoteSnippets(messagesForFeedback, 12) : undefined;
+
+    const agent1PromptFromDb = await storage.getAiPrompt(FEEDBACK_AGENT1_PROMPT_NAME);
+    const agent1SystemPrompt = agent1PromptFromDb?.prompt || DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT;
+
+    const agent1Output = await runFeedbackAgent1GlobalAnalysis(openai, {
+      transcriptText,
+      prodigyFrameworkText: PRODIGY_FRAMEWORK_TEXT,
+      allowedStudentQuoteSnippets,
+      systemPromptOverride: agent1SystemPrompt,
+    });
+
+    const baseAgent2Prompt = await getFeedbackAnalysisPromptByGroup(feedbackGroup);
+    const systemPrompt = wrapAgent2SystemPrompt(baseAgent2Prompt, feedbackGroup);
+
+    const groupBQuoteSnippets = feedbackGroup === "B" ? extractStudentQuoteSnippets(messagesForFeedback, 12) : [];
+    const userContent = feedbackGroup === "B"
+      ? buildGroupBUserContent(`AGENT_1_OUTPUT:\n${agent1Output}`, groupBQuoteSnippets)
+      : agent1Output;
 
     const requestOnce = async (temperature: number, extraUserHint?: string) => {
       const content = extraUserHint ? `${extraUserHint}\n\n${userContent}` : userContent;
@@ -246,15 +438,17 @@ export async function generateFeedback(
 
     const parsed = JSON.parse(response.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
 
-    let preservePoints = normalizePoints(
+    let preservePoints = normalizePointsRange(
       parsed.preserve_points,
-      2,
-      "Preserve: continue using audience-aware communication behavior"
+      1,
+      1,
+      "You communicated effectively with a layperson."
     );
-    let improvementPoints = normalizePoints(
+    let improvementPoints = normalizePointsRange(
       parsed.improvement_points,
+      1,
       3,
-      "Improve: simplify and clarify your message for a lay audience"
+      "Simplify jargon and add one concrete example to clarify your point."
     );
 
     if (feedbackGroup === "B") {
@@ -263,33 +457,36 @@ export async function generateFeedback(
         .map((msg) => msg.content)
         .join("\n\n");
 
-      let combined = [...preservePoints, ...improvementPoints];
-      const hasValidQuotes = groupBQuotesLookValid(combined, studentOnlyText);
+      const preserveQuotesOk = groupBPreserveQuotesLookValidOrAbsent(preservePoints, studentOnlyText);
+      const improvementQuotesOk = groupBImprovementQuotesLookValid(improvementPoints, studentOnlyText);
+      const combined = [...preservePoints, ...improvementPoints];
       const hasExplanations = groupBPointsHaveExplanations(combined);
 
-      if (!hasValidQuotes || !hasExplanations) {
+      if (!preserveQuotesOk || !improvementQuotesOk || !hasExplanations) {
         const retry = await requestOnce(
           0,
-          "IMPORTANT: Every point must include exactly one direct STUDENT quote in double quotes copied verbatim from the transcript (do not quote the layperson, and do not invent quotes). Also include a clear explanatory clause outside the quote (observation + impact/reason). Quote-only bullets are invalid."
+          "IMPORTANT: Do not quote the layperson. Improvement points must include at least one direct STUDENT quote copied verbatim from the transcript (do not invent quotes). Also include diagnosis + actionable suggestion; quote-only bullets are invalid."
         );
         const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
-        preservePoints = normalizePoints(
+        preservePoints = normalizePointsRange(
           retryParsed.preserve_points,
-          2,
-          "Preserve: continue using audience-aware communication behavior"
+          1,
+          1,
+          "You communicated effectively with a layperson."
         );
-        improvementPoints = normalizePoints(
+        improvementPoints = normalizePointsRange(
           retryParsed.improvement_points,
+          1,
           3,
-          "Improve: simplify and clarify your message for a lay audience"
+          "Simplify jargon and add one concrete example to clarify your point."
         );
 
-        combined = [...preservePoints, ...improvementPoints];
-        const retryHasValidQuotes = groupBQuotesLookValid(combined, studentOnlyText);
-        const retryHasExplanations = groupBPointsHaveExplanations(combined);
+        const retryPreserveQuotesOk = groupBPreserveQuotesLookValidOrAbsent(preservePoints, studentOnlyText);
+        const retryImprovementQuotesOk = groupBImprovementQuotesLookValid(improvementPoints, studentOnlyText);
+        const retryHasExplanations = groupBPointsHaveExplanations([...preservePoints, ...improvementPoints]);
 
-        // Final guardrail: keep the quote but force a concise explanation around it.
-        if (retryHasValidQuotes && !retryHasExplanations) {
+        // Final guardrail: if quotes are valid but explanation is too thin, force a minimal explanation.
+        if (retryPreserveQuotesOk && retryImprovementQuotesOk && !retryHasExplanations) {
           preservePoints = enforceGroupBExplanations(preservePoints, "strength");
           improvementPoints = enforceGroupBExplanations(improvementPoints, "improvement");
         }
@@ -314,15 +511,21 @@ export async function generateFeedback(
 // Initialize feedback prompts
 export async function initializeFeedbackPrompts() {
   try {
-    await Promise.all(
-      (Object.keys(FEEDBACK_ANALYSIS_PROMPT_CONFIG) as FeedbackGroup[]).map((group) => {
-        const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group];
-        return storage.upsertAiPrompt({
-          name: config.name,
-          prompt: config.prompt,
-        });
+    const groupUpserts = (Object.keys(FEEDBACK_ANALYSIS_PROMPT_CONFIG) as FeedbackGroup[]).map((group) => {
+      const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group];
+      return storage.upsertAiPrompt({
+        name: config.name,
+        prompt: config.prompt,
+      });
+    });
+
+    await Promise.all([
+      ...groupUpserts,
+      storage.upsertAiPrompt({
+        name: FEEDBACK_AGENT1_PROMPT_NAME,
+        prompt: DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT,
       }),
-    );
+    ]);
   } catch (error) {
     console.error("Failed to initialize feedback prompts:", error);
   }

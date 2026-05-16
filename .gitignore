@@ -54,6 +54,7 @@ Thumbs.db
 .cache
 .vite
 .parcel-cache
+test/*.json
 
 # Archives
 *.tar.gz

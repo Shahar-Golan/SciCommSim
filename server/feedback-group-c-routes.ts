@@ -97,14 +97,17 @@ function parseFormattedPointsBlock(value: string | null | undefined): string[] {
   return lines.length > 0 ? lines : [value.trim()];
 }
 
-function normalizeRequiredPoints(points: string[], requiredCount: number, fallbackPrefix: string): string[] {
+function normalizePointsRange(points: string[], minCount: number, maxCount: number, fallback: string): string[] {
+  const min = Number.isFinite(minCount) ? Math.max(0, Math.floor(minCount)) : 0;
+  const max = Number.isFinite(maxCount) ? Math.max(min, Math.floor(maxCount)) : min;
+
   const trimmed = points
     .map((point) => point.trim())
     .filter(Boolean)
-    .slice(0, requiredCount);
+    .slice(0, max);
 
-  while (trimmed.length < requiredCount) {
-    trimmed.push(`${fallbackPrefix} ${trimmed.length + 1}.`);
+  while (trimmed.length < min) {
+    trimmed.push(min > 1 ? `${fallback} ${trimmed.length + 1}.` : fallback);
   }
 
   return trimmed;
@@ -131,15 +134,17 @@ function getDefaultGroupCState(feedback: { strengths?: string | null; improvemen
     current_stage: "improvements",
     current_index: 0,
     feedback_json: {
-      preserve_points: normalizeRequiredPoints(
+      preserve_points: normalizePointsRange(
         preserve,
-        2,
-        "Preserve: continue using audience-aware communication behavior",
+        1,
+        1,
+        "You communicated effectively with a layperson.",
       ),
-      improvement_points: normalizeRequiredPoints(
+      improvement_points: normalizePointsRange(
         improve,
+        1,
         3,
-        "Improve: simplify and clarify your message for a lay audience",
+        "Simplify jargon and add one concrete example to clarify your point.",
       ),
     },
   };
@@ -176,10 +181,10 @@ function parseGroupCState(
       : [];
 
     const preserve_points = preserve.length > 0
-      ? normalizeRequiredPoints(preserve, 2, "Preserve: continue using audience-aware communication behavior")
+      ? normalizePointsRange(preserve, 1, 1, "You communicated effectively with a layperson.")
       : fallback.feedback_json.preserve_points;
     const improvement_points = improve.length > 0
-      ? normalizeRequiredPoints(improve, 3, "Improve: simplify and clarify your message for a lay audience")
+      ? normalizePointsRange(improve, 1, 3, "Simplify jargon and add one concrete example to clarify your point.")
       : fallback.feedback_json.improvement_points;
 
     const index = typeof parsed.current_index === "number" && Number.isFinite(parsed.current_index)
