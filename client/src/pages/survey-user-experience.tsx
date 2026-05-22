@@ -54,7 +54,6 @@ export default function SurveyUserExperience({
           <form onSubmit={handleNext} className="space-y-8">
             <div className="space-y-6">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold text-slate-800">{section.title}</h3>
                 {section.instructions && <p className="text-sm text-slate-600">{section.instructions}</p>}
               </div>
 

@@ -148,15 +148,8 @@ export const SURVEY_SECTIONS_ALL: SurveySection[] = [
       {
         id: "changed",
         type: "text",
-        text: "In the second conversation, did you change the way you communicated with the simulator?",
-        rows: 3,
-        placeholder: "Your answer",
-      },
-      {
-        id: "changed_why",
-        type: "text",
-        text: "If yes, what did you change and why?",
-        rows: 4,
+        text: "In the second conversation, did you change the way you communicated with the simulator? If so, what did you change and why?",
+        rows: 5,
         placeholder: "Your answer",
       },
       {

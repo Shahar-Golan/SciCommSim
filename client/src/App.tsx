@@ -10,9 +10,9 @@ import Instructions from "@/pages/instructions";
 import Conversation from "@/pages/conversation";
 import FeedbackRoot from "@/pages/feedback-root";
 import ReadyForRoundTwo from "@/pages/ready-for-round-two";
+import SurveyDemographics from "@/pages/survey-demographics";
 import SurveyExplainability from "@/pages/survey-explainability";
 import SurveyUserExperience from "@/pages/survey-user-experience";
-import SurveyDemographics from "@/pages/survey-demographics";
 import ThankYou from "@/pages/thank-you";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AboutUs from "@/pages/about-us";
@@ -28,9 +28,9 @@ type AppState =
   | "break" 
   | "conversation2" 
   | "feedback2" 
+  | "surveyDemographics"
   | "surveyExplainability"
   | "surveyUserExperience"
-  | "surveyDemographics"
   | "thankYou"
   | "admin"
   | "aboutUs"
@@ -128,11 +128,15 @@ function App() {
   };
 
   const handleFeedback2Next = () => {
-    setCurrentState("surveyExplainability");
+    setCurrentState("surveyDemographics");
   };
 
   const setSurveyResponse = (id: string, value: string) => {
     setSurveyResponses((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const handleSurveyDemographicsComplete = () => {
+    setCurrentState("surveyExplainability");
   };
 
   const handleSurveyExplainabilityNext = () => {
@@ -140,10 +144,6 @@ function App() {
   };
 
   const handleSurveyUserExperienceNext = () => {
-    setCurrentState("surveyDemographics");
-  };
-
-  const handleSurveyDemographicsComplete = () => {
     setCurrentState("thankYou");
   };
 
@@ -225,6 +225,16 @@ function App() {
           />
         );
 
+      case "surveyDemographics":
+        return (
+          <SurveyDemographics
+            sessionId={sessionData.sessionId}
+            responses={surveyResponses}
+            setResponse={setSurveyResponse}
+            onComplete={handleSurveyDemographicsComplete}
+          />
+        );
+
       case "surveyExplainability":
         return (
           <SurveyExplainability
@@ -240,16 +250,6 @@ function App() {
             responses={surveyResponses}
             setResponse={setSurveyResponse}
             onNext={handleSurveyUserExperienceNext}
-          />
-        );
-
-      case "surveyDemographics":
-        return (
-          <SurveyDemographics
-            sessionId={sessionData.sessionId}
-            responses={surveyResponses}
-            setResponse={setSurveyResponse}
-            onComplete={handleSurveyDemographicsComplete}
           />
         );
       
@@ -319,11 +319,11 @@ function App() {
               <div className="hidden md:flex items-center space-x-4">
                 <span className="text-sm text-slate-600">Session Progress</span>
                 <div className="flex space-x-2">
-                  {["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "surveyExplainability", "surveyUserExperience", "surveyDemographics", "thankYou"].map((state, index) => (
+                  {["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "surveyDemographics", "surveyExplainability", "surveyUserExperience", "thankYou"].map((state, index) => (
                     <div 
                       key={state}
                       className={`w-2 h-2 rounded-full ${
-                        ["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "surveyExplainability", "surveyUserExperience", "surveyDemographics", "thankYou"].indexOf(currentState) >= index
+                        ["welcome", "instructions", "conversation1", "feedback1", "break", "conversation2", "feedback2", "surveyDemographics", "surveyExplainability", "surveyUserExperience", "thankYou"].indexOf(currentState) >= index
                           ? "bg-blue-500" 
                           : "bg-slate-300"
                       }`}
