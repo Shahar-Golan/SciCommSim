@@ -53,9 +53,10 @@ Return STRICT JSON ONLY with this schema:
 }
 
 Constraints:
-- areas_for_improvement length: exactly 3.
-- strengths: exactly 2 objects.
-- evidence: for each point, include transcript-grounded evidence per the rules above.`;
+- areas_for_improvement length: exactly 2.
+- strengths: exactly 1 objects.
+- evidence: for each point, include transcript-grounded evidence per the rules above.
+- Do NOT include any referance about the Prodigy framework in the feedback itself. The Prodigy framework is only for you to use as a tool to analyze the conversation and generate feedback, but the feedback should be framed in natural language that a layperson could understand without knowledge of the framework.`;
 
 export function loadWorkspaceTextFile(fileName: string): string {
   const candidates = [

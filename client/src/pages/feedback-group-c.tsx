@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { ArrowLeft, ArrowRight, Bot, MessageSquare, Send, Sparkles, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -48,8 +49,9 @@ function isFeedbackStage(value: unknown): value is FeedbackJsonPayload["stage"] 
 
 function renderTextWithHighlightedQuotes(text: string) {
   const nodes: Array<JSX.Element | string> = [];
-  // Match: straight double quotes, curly quotes (U+201C U+201D), or single quotes
-  const quoteRegex = /(["\u201c])(.+?)(["\u201d])|'(.+?)'/g;
+  // Match balanced straight or curly double quotes only.
+  // Apostrophes inside words are common in transcripts and should not be treated as quote delimiters.
+  const quoteRegex = /(["\u201c])(.+?)(["\u201d])/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -57,8 +59,7 @@ function renderTextWithHighlightedQuotes(text: string) {
   while ((match = quoteRegex.exec(text)) !== null) {
     const matchIndex = match.index;
     const fullMatch = match[0] || "";
-    // Extract content: group 2 for double quotes, group 4 for single quotes
-    const quoteText = match[2] || match[4] || "";
+    const quoteText = match[2] || "";
 
     if (matchIndex > lastIndex) {
       nodes.push(text.slice(lastIndex, matchIndex));
@@ -172,6 +173,7 @@ export default function FeedbackDialogue({
   const [isDialogueDone, setIsDialogueDone] = useState(false);
   const [isAdvancingNext, setIsAdvancingNext] = useState(false);
   const [draftMessage, setDraftMessage] = useState("");
+  const [showCompleteConfirmation, setShowCompleteConfirmation] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
@@ -321,6 +323,15 @@ export default function FeedbackDialogue({
         variant: "destructive",
       });
     }
+  };
+
+  const handleCompleteClick = () => {
+    if (!isDialogueDone) {
+      setShowCompleteConfirmation(true);
+      return;
+    }
+
+    void handleComplete();
   };
 
   const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -495,19 +506,6 @@ export default function FeedbackDialogue({
             </div>
           </div>
 
-          {latestTeacherMessage && !isDialogueDone && (
-            <div className="flex justify-center">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handlePresentNext()}
-                disabled={isProcessingTeacher || isAdvancingNext}
-              >
-                Present next feedback comment
-              </Button>
-            </div>
-          )}
-
           <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700" htmlFor="feedback-composer">
@@ -549,9 +547,22 @@ export default function FeedbackDialogue({
             </div>
           </div>
 
+          {latestTeacherMessage && !isDialogueDone && (
+            <div className="flex justify-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handlePresentNext()}
+                disabled={isProcessingTeacher || isAdvancingNext}
+              >
+                Present next feedback comment
+              </Button>
+            </div>
+          )}
+
           <div className="flex justify-end">
             <Button
-              onClick={() => void handleComplete()}
+              onClick={handleCompleteClick}
               disabled={isProcessingTeacher}
               className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
             >
@@ -560,6 +571,35 @@ export default function FeedbackDialogue({
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showCompleteConfirmation} onOpenChange={setShowCompleteConfirmation}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Are you sure you want to complete the feedback?</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm text-slate-600">
+            <p>
+              There are still feedback comments you haven’t viewed yet that may help you improve your communication.
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setShowCompleteConfirmation(false)}>
+                Go back
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowCompleteConfirmation(false);
+                  void handleComplete();
+                }}
+                className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+              >
+                Complete feedback anyway
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {latestTeacherMessage && (
         <p className="text-center text-sm text-slate-500">
