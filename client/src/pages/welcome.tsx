@@ -44,6 +44,20 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
     }
   };
 
+  const handleConsentGate = () => {
+    if (hasReadFullForm) {
+      return false;
+    }
+
+    toast({
+      title: "Read the consent form first",
+      description: "Please scroll through and complete the consent form before continuing.",
+      variant: "destructive",
+    });
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -279,149 +293,196 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
         )}
       </div>
 
-      {/* Tutorial Video Section */}
-      <div className="text-center">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 max-w-lg mx-auto">
-          <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-              <Play className="text-white w-5 h-5 ml-0.5" />
+      {/* Three-phase horizontal flow */}
+      <div className="max-w-7xl mx-auto px-4 lg:px-8">
+        <div className="flex flex-col items-stretch justify-center gap-4 lg:flex-row lg:items-start lg:gap-6">
+          <div className="flex flex-col items-center gap-4 lg:flex-[1.35] lg:min-w-[380px]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-lg font-bold text-white shadow-sm ring-8 ring-blue-100">
+              1
             </div>
-            <h3 className="text-xl font-semibold text-blue-800">Watch the Tutorial First</h3>
-          </div>
-          <p className="text-blue-700 mb-4">
-            Please watch this short tutorial before starting your training session
-          </p>
-          <Button 
-            asChild
-            variant="outline"
-            className="border-blue-300 text-blue-700 hover:bg-blue-100 px-6 py-2"
-            data-testid="button-tutorial"
-          >
-            <a 
-              href="https://youtu.be/hkC_PVCu4oE" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center"
-            >
-              <Play className="mr-2 w-4 h-4" />
-              Watch Tutorial
-            </a>
-          </Button>
-        </div>
-      </div>
-
-      {/* Two-column layout: Consent Form + Let's Get Started */}
-      <div className="flex gap-6 max-w-4xl mx-auto justify-center">
-        {/* Left Card: Consent Form */}
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8">
-            <div className="space-y-6">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">Consent Form</h3>
-                <p className="text-slate-600 text-sm">Please read and respond to the consent form</p>
-              </div>
-
-              <Button 
-                onClick={() => setConsentFormOpen(true)}
-                className="w-full bg-slate-600 hover:bg-slate-700"
-                data-testid="button-open-consent-form"
-              >
-                Open Consent Form
-              </Button>
-
-              {/* Consent Checkboxes - Disabled until form is read */}
-              <div className="space-y-4 border-t border-slate-200 pt-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="consent-agree"
-                      checked={consentChoice === "agree"}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setConsentChoice("agree");
-                        }
-                      }}
-                      disabled={!hasReadFullForm}
-                      data-testid="checkbox-consent-agree"
-                    />
-                    <label 
-                      htmlFor="consent-agree"
-                      className={`text-sm cursor-pointer ${!hasReadFullForm ? "text-slate-400" : "text-slate-700"}`}
-                    >
-                      I consent to take part in the study
-                    </label>
+            <div className="w-full max-w-none rounded-2xl border border-blue-200 bg-blue-50/80 p-6 shadow-sm">
+              <div className="space-y-4 text-center">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500">
+                    <Play className="h-5 w-5 text-white" />
                   </div>
-
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="consent-disagree"
-                      checked={consentChoice === "disagree"}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setConsentChoice("disagree");
-                        }
-                      }}
-                      disabled={!hasReadFullForm}
-                      data-testid="checkbox-consent-disagree"
-                    />
-                    <label 
-                      htmlFor="consent-disagree"
-                      className={`text-sm cursor-pointer ${!hasReadFullForm ? "text-slate-400" : "text-slate-700"}`}
-                    >
-                      I do not consent to take part in the study
-                    </label>
-                  </div>
+                  <h3 className="text-xl font-semibold text-blue-800">Watch the Tutorial First</h3>
                 </div>
-
-                {!hasReadFullForm && (
-                  <p className="text-xs text-slate-500 text-center">
-                    Read the full form to enable consent options
-                  </p>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Right Card: Let's Get Started */}
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="text-center">
-                <h3 className="text-xl font-semibold text-slate-800 mb-2">Let's Get Started</h3>
-                <p className="text-slate-600 text-sm">Please enter your email address to begin your training session</p>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="student-name" className="block text-sm font-medium text-slate-700 mb-2">
-                    Your Email Address
-                  </label>
-                  <Input
-                    id="student-name"
-                    type="email"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your email address"
-                    className="w-full"
-                    disabled={isLoading || !consentChoice}
-                    data-testid="input-student-name"
-                  />
-                </div>
-                
-                <Button 
-                  type="submit"
-                  className="w-full bg-blue-500 hover:bg-blue-600"
-                  disabled={isLoading || !consentChoice}
-                  data-testid="button-continue"
+                <p className="text-sm text-blue-700">
+                  Please watch this short tutorial before starting your training session
+                </p>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100 px-6 py-2"
+                  data-testid="button-tutorial"
                 >
-                  <span>Continue</span>
-                  <ArrowRight className="ml-2 w-4 h-4" />
+                  <a
+                    href="https://youtu.be/hkC_PVCu4oE"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center"
+                  >
+                    <Play className="mr-2 h-4 w-4" />
+                    Watch Tutorial
+                  </a>
                 </Button>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+
+          <div className="flex justify-center py-2 lg:items-center lg:py-0">
+            <ArrowRight className="hidden h-10 w-10 text-slate-400 lg:block" />
+            <ArrowRight className="h-8 w-8 rotate-90 text-slate-400 lg:hidden" />
+          </div>
+
+          <div className="flex flex-col items-center gap-4 lg:flex-[1.35] lg:min-w-[380px]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-lg font-bold text-white shadow-sm ring-8 ring-blue-100">
+              2
+            </div>
+            <Card className="w-full max-w-none shadow-sm">
+              <CardContent className="p-8">
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold text-slate-800 mb-2">Consent Form</h3>
+                    <p className="text-slate-600 text-sm">Please read and respond to the consent form</p>
+                  </div>
+
+                  <Button
+                    onClick={() => setConsentFormOpen(true)}
+                    className="w-full bg-slate-600 hover:bg-slate-700"
+                    data-testid="button-open-consent-form"
+                  >
+                    Open Consent Form
+                  </Button>
+
+                  <div className="space-y-4 border-t border-slate-200 pt-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          id="consent-agree"
+                          checked={consentChoice === "agree"}
+                          onCheckedChange={(checked) => {
+                            if (handleConsentGate()) {
+                              return;
+                            }
+
+                            if (checked) {
+                              setConsentChoice("agree");
+                            }
+                          }}
+                          data-testid="checkbox-consent-agree"
+                        />
+                        <label
+                          htmlFor="consent-agree"
+                          className={`text-sm cursor-pointer transition-colors ${hasReadFullForm ? "text-slate-700" : "text-slate-400"}`}
+                        >
+                          I consent to take part in the study
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          id="consent-disagree"
+                          checked={consentChoice === "disagree"}
+                          onCheckedChange={(checked) => {
+                            if (handleConsentGate()) {
+                              return;
+                            }
+
+                            if (checked) {
+                              setConsentChoice("disagree");
+                            }
+                          }}
+                          data-testid="checkbox-consent-disagree"
+                        />
+                        <label
+                          htmlFor="consent-disagree"
+                          className={`text-sm cursor-pointer transition-colors ${hasReadFullForm ? "text-slate-700" : "text-slate-400"}`}
+                        >
+                          I do not consent to take part in the study
+                        </label>
+                      </div>
+                    </div>
+
+                    {!hasReadFullForm && (
+                      <p className="text-xs text-slate-500 text-center">
+                        You have to read the full form before proceeding
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="flex justify-center py-2 lg:items-center lg:py-0">
+            <ArrowRight className="hidden h-10 w-10 text-slate-400 lg:block" />
+            <ArrowRight className="h-8 w-8 rotate-90 text-slate-400 lg:hidden" />
+          </div>
+
+          <div className="flex flex-col items-center gap-4 lg:flex-[1.35] lg:min-w-[380px]">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-700 text-lg font-bold text-white shadow-sm ring-8 ring-blue-100">
+              3
+            </div>
+            <Card className="w-full max-w-none shadow-sm">
+              <CardContent className="p-8">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold text-slate-800 mb-2">Let's Get Started</h3>
+                    <p className="text-slate-600 text-sm">Please enter your email address to begin your training session</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="student-name" className="block text-sm font-medium text-slate-700 mb-2">
+                        Your Email Address
+                      </label>
+                      <Input
+                        id="student-name"
+                        type="email"
+                        value={name}
+                        onFocus={() => {
+                          if (handleConsentGate()) {
+                            return;
+                          }
+                        }}
+                        onClick={() => {
+                          if (handleConsentGate()) {
+                            return;
+                          }
+                        }}
+                        onChange={(e) => {
+                          if (handleConsentGate()) {
+                            return;
+                          }
+
+                          setName(e.target.value);
+                        }}
+                        placeholder="Enter your email address"
+                        className="w-full"
+                        readOnly={!hasReadFullForm}
+                        aria-disabled={!hasReadFullForm}
+                        disabled={isLoading}
+                        data-testid="input-student-name"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-500 hover:bg-blue-600"
+                      disabled={isLoading || !consentChoice}
+                      data-testid="button-continue"
+                    >
+                      <span>Continue</span>
+                      <ArrowRight className="ml-2 w-4 h-4" />
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
       {/* Consent Form Dialog */}

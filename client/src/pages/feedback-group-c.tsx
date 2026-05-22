@@ -361,7 +361,7 @@ export default function FeedbackDialogue({
             <div className="flex-1 space-y-2">
               <h2 className="text-2xl font-bold text-slate-800">Feedback</h2>
               <p className="text-slate-600 leading-relaxed">
-                Conversation {conversationNumber}: read the coach feedback, respond in text, and keep the dialogue focused on how the conversation was communicated.
+                Conversation {conversationNumber}: Read the coach’s feedback. If you have something you want to ask or respond regarding this feedback, you can write your textual response below.
               </p>
             </div>
           </div>
