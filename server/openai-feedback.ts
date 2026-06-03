@@ -36,10 +36,8 @@ type FeedbackAnalysisResult = {
   improvement_points: string[];
 };
 
-// NOTE: We still load Feedback_Prompt.txt for backwards-compatibility and potential future use,
-// but the current Group A/B/C prompts are replaced with the experiment prompts from missions.md.
-loadWorkspaceTextFile("Feedback_Prompt.txt");
-const PRODIGY_FRAMEWORK_TEXT = loadWorkspaceTextFile("prodigy_framework.txt");
+// since the current Group A/B/C prompts are replaced with the experiment prompts from missions.md.
+const PRODIGY_FRAMEWORK_TEXT = loadWorkspaceTextFile("prodigy_framework2.txt");
 
 const FEEDBACK_AGENT1_PROMPT_NAME = "feedback_agent1_global";
 
@@ -51,8 +49,8 @@ THE NEXT BULLET, IN GREEN FONT, IS ONLY FOR GROUP ‘A’ (CONTROL GROUP – ‘
 Structure of Feedback Points:
 When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
 Output format:
-•	Areas for Improvement (exactly 3 points): Short, actionable recommendations. 
-•	Strengths (exactly 2 points): Two concise statements describing what was done well. 
+•	Areas for Improvement (exactly 2 points): Short, actionable recommendations. 
+•	Strengths (exactly 1 point): One concise statement describing what was done well. 
 Guidelines:
 •	Each point should be brief (1–2 sentences maximum). 
 •	Focus on clear, actionable advice, without justification or detailed explanation. 
@@ -64,18 +62,17 @@ Here is an example of what such feedback might look like:
 Areas for improvement:
 1.	Reduce the use of jargon and use simpler, more accessible language. 
 2.	Invite your conversation partner to share their thoughts more actively. 
-3.	Show more empathy when responding to concerns raised by the conversation partner. 
-Strengths: You clearly explained the importance and real-world relevance of your research. You also effectively answered the question about the role of genes in vision loss.
+Strengths: You clearly explained the importance and real-world relevance of your research.
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
+  "preserve_points": ["..."],
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT include any transcript quotes or paraphrases.`,
   },
   B: {
@@ -116,13 +113,13 @@ Additional guidelines:
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
+  "preserve_points": ["..."],
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
   C: {
@@ -164,13 +161,13 @@ Additional guidelines:
 
 IMPORTANT: Return strict JSON only with this schema:
 {
-  "preserve_points": ["...", "..."],
-  "improvement_points": ["...", "...", "..."]
+  "preserve_points": ["..."],
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
 };
@@ -501,14 +498,14 @@ export async function generateFeedback(
 
     let preservePoints = normalizePointsRange(
       parsed.preserve_points,
-      2,
-      2,
+      1,
+      1,
       "You communicated effectively with a layperson."
     );
     let improvementPoints = normalizePointsRange(
       parsed.improvement_points,
-      3,
-      3,
+      2,
+      2,
       "Simplify jargon and add one concrete example to clarify your point."
     );
 
@@ -531,14 +528,14 @@ export async function generateFeedback(
         const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
         preservePoints = normalizePointsRange(
           retryParsed.preserve_points,
-          2,
-          2,
+          1,
+          1,
           "You communicated effectively with a layperson."
         );
         improvementPoints = normalizePointsRange(
           retryParsed.improvement_points,
-          3,
-          3,
+          2,
+          2,
           "Simplify jargon and add one concrete example to clarify your point."
         );
 
