@@ -48,21 +48,27 @@ function isFeedbackStage(value: unknown): value is FeedbackJsonPayload["stage"] 
 }
 
 function renderTextWithHighlightedQuotes(text: string) {
+  const normalizedText = text
+    // Repair malformed contractions caused by mismatched smart quotes, e.g. I “m -> I'm
+    .replace(/\b([A-Za-z]+)\s*["\u201c\u201d\u2018\u2019']\s*(m|re|ve|ll|d|s|t)\b/gi, "$1'$2")
+    .replace(/\s+/g, " ")
+    .trim();
+
   const nodes: Array<JSX.Element | string> = [];
-  // Match balanced straight or curly double quotes only.
-  // Apostrophes inside words are common in transcripts and should not be treated as quote delimiters.
-  const quoteRegex = /(["\u201c])(.+?)(["\u201d])/g;
+  // Match only balanced quote pairs to avoid malformed rendering from mixed smart quotes.
+  // Apostrophes inside words are common and should not be treated as quote delimiters.
+  const quoteRegex = /"([^"\n]{2,})"|“([^”\n]{2,})”|‘([^’\n]{2,})’|'([^'\n]{6,})'/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = quoteRegex.exec(text)) !== null) {
+  while ((match = quoteRegex.exec(normalizedText)) !== null) {
     const matchIndex = match.index;
     const fullMatch = match[0] || "";
-    const quoteText = match[2] || "";
+    const quoteText = match[1] || match[2] || match[3] || match[4] || "";
 
     if (matchIndex > lastIndex) {
-      nodes.push(text.slice(lastIndex, matchIndex));
+      nodes.push(normalizedText.slice(lastIndex, matchIndex));
     }
 
     nodes.push(
@@ -77,8 +83,8 @@ function renderTextWithHighlightedQuotes(text: string) {
     lastIndex = matchIndex + fullMatch.length;
   }
 
-  if (lastIndex < text.length) {
-    nodes.push(text.slice(lastIndex));
+  if (lastIndex < normalizedText.length) {
+    nodes.push(normalizedText.slice(lastIndex));
   }
 
   return nodes;
