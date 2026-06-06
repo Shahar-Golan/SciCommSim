@@ -596,9 +596,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const updates = req.body;
-      
-      
       const session = await storage.updateTrainingSession(id, updates);
+
+      if (
+        typeof updates?.helpfulnessRating === "number" &&
+        (typeof updates?.experienceFeedback === "string" || updates?.experienceFeedback === null)
+      ) {
+        await storage.incrementFeedbackRoutingCounter();
+      }
+
       res.json(session);
     } catch (error) {
       console.error("Error updating training session:", error);
@@ -865,14 +871,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Feedback API called with:", req.body);
     try {
       const { conversationId } = req.body;
-      const feedbackGroup = parseFeedbackGroup(req.body.feedbackGroup);
-      const analysisGroup: FeedbackGroup = feedbackGroup === "C" ? "B" : feedbackGroup;
-      
-      // Fetch the conversation to get the actual transcript
       const conversation = await storage.getConversation(conversationId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
+
+      const sessionGroup = await storage.getFeedbackGroupForSession(conversation.sessionId);
+      const routingCounter = await storage.getFeedbackRoutingCounter();
+      const fallbackGroup: FeedbackGroup = routingCounter % 3 === 0 ? "A" : routingCounter % 3 === 1 ? "B" : "C";
+      const feedbackGroup = sessionGroup === "A" || sessionGroup === "B" || sessionGroup === "C"
+        ? sessionGroup
+        : fallbackGroup;
+      const analysisGroup: FeedbackGroup = feedbackGroup === "C" ? "B" : feedbackGroup;
       
       const messages = conversation.transcript || [];
       console.log("Generating feedback for conversation:", conversationId, "with", messages?.length, "messages");
@@ -881,6 +891,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Generated feedback data:", feedbackData);
 
       const payload = {
+        group: feedbackGroup,
         strengths: feedbackData.strengths,
         improvements: feedbackData.improvements,
         summary: JSON.stringify({
@@ -898,6 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         await storage.createFeedback({
           conversationId,
+          group: payload.group,
           strengths: payload.strengths,
           improvements: payload.improvements,
           summary: payload.summary,

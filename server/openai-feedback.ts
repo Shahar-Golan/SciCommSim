@@ -8,7 +8,7 @@ const openai = new OpenAI({
 });
 
 const FEEDBACK_THINKING_MODEL =
-  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-5";
+  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-4o";
 
 const FEEDBACK_THINKING_MODEL_FALLBACK = process.env.OPENAI_FEEDBACK_THINKING_MODEL_FALLBACK || "gpt-4o";
 
@@ -49,8 +49,8 @@ THE NEXT BULLET, IN GREEN FONT, IS ONLY FOR GROUP ‘A’ (CONTROL GROUP – ‘
 Structure of Feedback Points:
 When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
 Output format:
-•	Areas for Improvement (exactly 2 points): Short, actionable recommendations. 
-•	Strengths (exactly 1 point): One concise statement describing what was done well. 
+•	Areas for Improvement (exactly 3 points): Short, actionable recommendations. 
+•	Strengths (exactly 2 points): Two concise statements describing what was done well. 
 Guidelines:
 •	Each point should be brief (1–2 sentences maximum). 
 •	Focus on clear, actionable advice, without justification or detailed explanation. 
@@ -67,12 +67,12 @@ Strengths: You clearly explained the importance and real-world relevance of your
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "..."]
+  "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain exactly 2 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT include any transcript quotes or paraphrases.`,
   },
   B: {
@@ -113,20 +113,18 @@ Additional guidelines:
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "..."]
+  "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain exactly 2 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
   C: {
     name: "feedback_analysis_group_c",
     // Group C shares the same prompt guidelines as Group B for the experiment.
     prompt: `GROUP B+C:
-
-THE NEXT BULLET, IN RED FONT, IS ONLY FOR GROUPS ‘B’ AND ‘C’ IN THE EXPERIMENT:
 
 Structure of feedback points:
 For strengths:
@@ -161,12 +159,12 @@ Additional guidelines:
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "..."]
+  "improvement_points": ["...", "...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 1 item.
-- "improvement_points" must contain exactly 2 items.
+- "preserve_points" must contain exactly 2 items.
+- "improvement_points" must contain exactly 3 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
 };
@@ -497,14 +495,14 @@ export async function generateFeedback(
 
     let preservePoints = normalizePointsRange(
       parsed.preserve_points,
-      1,
-      1,
+      2,
+      2,
       "You communicated effectively with a layperson."
     );
     let improvementPoints = normalizePointsRange(
       parsed.improvement_points,
-      2,
-      2,
+      3,
+      3,
       "Simplify jargon and add one concrete example to clarify your point."
     );
 
@@ -527,14 +525,14 @@ export async function generateFeedback(
         const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
         preservePoints = normalizePointsRange(
           retryParsed.preserve_points,
-          1,
-          1,
+          2,
+          2,
           "You communicated effectively with a layperson."
         );
         improvementPoints = normalizePointsRange(
           retryParsed.improvement_points,
-          2,
-          2,
+          3,
+          3,
           "Simplify jargon and add one concrete example to clarify your point."
         );
 

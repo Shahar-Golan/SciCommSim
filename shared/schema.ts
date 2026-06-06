@@ -50,6 +50,7 @@ export const conversations = pgTable("conversations", {
 export const feedback = pgTable("feedback", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   conversationId: uuid("conversation_id").references(() => conversations.id).notNull(),
+  group: varchar("group", { length: 1 }).notNull().default("C"),
   strengths: text("strengths"),
   improvements: text("improvements"),
   summary: text("summary"),
@@ -69,6 +70,11 @@ export const aiPrompts = pgTable("ai_prompts", {
   name: varchar("name").unique().notNull(),
   prompt: text("prompt").notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const feedbackRoutingState = pgTable("feedback_routing_state", {
+  id: varchar("id", { length: 32 }).primaryKey().notNull(),
+  counter: integer("counter").notNull().default(0),
 });
 
 // Prosody async jobs per conversation
@@ -146,6 +152,7 @@ export const insertConversationSchema = createInsertSchema(conversations).pick({
 
 export const insertFeedbackSchema = createInsertSchema(feedback).pick({
   conversationId: true,
+  group: true,
   strengths: true,
   improvements: true,
   summary: true,
@@ -204,6 +211,8 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 
 export type Feedback = typeof feedback.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+
+export type FeedbackRoutingState = typeof feedbackRoutingState.$inferSelect;
 
 export type AiPrompt = typeof aiPrompts.$inferSelect;
 export type InsertAiPrompt = z.infer<typeof insertAiPromptSchema>;

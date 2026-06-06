@@ -10,7 +10,7 @@ const openai = new OpenAI({
 type GroupCPhase = "awaiting_expand_decision" | "discussing_point" | "completed";
 
 const FEEDBACK_THINKING_MODEL =
-  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-5";
+  process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-4o";
 
 const FEEDBACK_THINKING_MODEL_FALLBACK = process.env.OPENAI_FEEDBACK_THINKING_MODEL_FALLBACK || "gpt-4o";
 
@@ -159,13 +159,13 @@ function getDefaultGroupCState(feedback: { strengths?: string | null; improvemen
     feedback_json: {
       preserve_points: normalizePointsRange(
         preserve,
-        1,
-        1,
+        2,
+        2,
         "You communicated effectively with a layperson.",
       ),
       improvement_points: normalizePointsRange(
         improve,
-        1,
+        3,
         3,
         "Simplify jargon and add one concrete example to clarify your point.",
       ),
@@ -204,10 +204,10 @@ function parseGroupCState(
       : [];
 
     const preserve_points = preserve.length > 0
-      ? normalizePointsRange(preserve, 1, 1, "You communicated effectively with a layperson.")
+      ? normalizePointsRange(preserve, 2, 2, "You communicated effectively with a layperson.")
       : fallback.feedback_json.preserve_points;
     const improvement_points = improve.length > 0
-      ? normalizePointsRange(improve, 1, 3, "Simplify jargon and add one concrete example to clarify your point.")
+      ? normalizePointsRange(improve, 3, 3, "Simplify jargon and add one concrete example to clarify your point.")
       : fallback.feedback_json.improvement_points;
 
     const index = typeof parsed.current_index === "number" && Number.isFinite(parsed.current_index)

@@ -128,7 +128,7 @@ function App() {
   };
 
   const handleFeedback2Next = () => {
-    setCurrentState("surveyDemographics");
+    setCurrentState("surveyExplainability");
   };
 
   const setSurveyResponse = (id: string, value: string) => {
@@ -136,7 +136,7 @@ function App() {
   };
 
   const handleSurveyDemographicsComplete = () => {
-    setCurrentState("surveyExplainability");
+    setCurrentState("thankYou");
   };
 
   const handleSurveyExplainabilityNext = () => {
@@ -144,7 +144,7 @@ function App() {
   };
 
   const handleSurveyUserExperienceNext = () => {
-    setCurrentState("thankYou");
+    setCurrentState("surveyDemographics");
   };
 
   const handleShowAbout = () => {

@@ -3,6 +3,7 @@ import {
   trainingSessions,
   conversations,
   feedback,
+  feedbackRoutingState,
   aiPrompts,
   prosodyJobs,
   prosodySegmentMetrics,
@@ -26,7 +27,7 @@ import {
   type InsertTestFeedbackAccessUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Students
@@ -57,6 +58,9 @@ export interface IStorage {
   createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
   getFeedbackByConversation(conversationId: string): Promise<Feedback | undefined>;
   updateFeedback(id: string, updates: Partial<Feedback>): Promise<Feedback>;
+  getFeedbackGroupForSession(sessionId: string): Promise<string | undefined>;
+  getFeedbackRoutingCounter(): Promise<number>;
+  incrementFeedbackRoutingCounter(): Promise<number>;
 
   // AI Prompts
   getAiPrompt(name: string): Promise<AiPrompt | undefined>;
@@ -290,6 +294,64 @@ export class DatabaseStorage implements IStorage {
       .where(eq(feedback.id, id))
       .returning();
     return feedbackRecord;
+  }
+
+  async getFeedbackGroupForSession(sessionId: string): Promise<string | undefined> {
+    const sessionConversations = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(eq(conversations.sessionId, sessionId))
+      .orderBy(asc(conversations.conversationNumber));
+
+    for (const conversation of sessionConversations) {
+      const [feedbackRecord] = await db
+        .select({ group: feedback.group })
+        .from(feedback)
+        .where(eq(feedback.conversationId, conversation.id));
+
+      if (feedbackRecord?.group) {
+        return feedbackRecord.group;
+      }
+    }
+
+    return undefined;
+  }
+
+  async getFeedbackRoutingCounter(): Promise<number> {
+    const [state] = await db
+      .select()
+      .from(feedbackRoutingState)
+      .where(eq(feedbackRoutingState.id, "default"));
+
+    if (state) {
+      return state.counter;
+    }
+
+    const [createdState] = await db
+      .insert(feedbackRoutingState)
+      .values({ id: "default", counter: 0 })
+      .returning();
+
+    return createdState.counter;
+  }
+
+  async incrementFeedbackRoutingCounter(): Promise<number> {
+    const [state] = await db
+      .update(feedbackRoutingState)
+      .set({ counter: sql`${feedbackRoutingState.counter} + 1` })
+      .where(eq(feedbackRoutingState.id, "default"))
+      .returning();
+
+    if (state) {
+      return state.counter;
+    }
+
+    const [createdState] = await db
+      .insert(feedbackRoutingState)
+      .values({ id: "default", counter: 1 })
+      .returning();
+
+    return createdState.counter;
   }
 
   async getAiPrompt(name: string): Promise<AiPrompt | undefined> {

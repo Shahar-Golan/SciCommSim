@@ -15,6 +15,7 @@ export const aiPrompts = pgTable("ai_prompts", {
 export const feedback = pgTable("feedback", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	conversationId: uuid("conversation_id").notNull(),
+	group: varchar("group", { length: 1 }).notNull().default('C'),
 	strengths: text(),
 	improvements: text(),
 	summary: text(),
@@ -28,6 +29,11 @@ export const feedback = pgTable("feedback", {
 			name: "feedback_conversation_id_conversations_id_fk"
 		}),
 ]);
+
+export const feedbackRoutingState = pgTable("feedback_routing_state", {
+	id: varchar().primaryKey().notNull(),
+	counter: integer("counter").default(0).notNull(),
+});
 
 export const prosodyJobs = pgTable("prosody_jobs", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
