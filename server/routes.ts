@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { conversationId, role, timestamp } = req.body;
 
-      // Upload to Supabase Storage
+      // Upload to Azure Blob Storage
       const audioUrl = await uploadAudio(
         req.file.buffer,
         req.file.mimetype,
@@ -773,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const audioBase64 = audioBuffer.toString('base64');
       res.json({ audioUrl: null, audioBuffer: audioBase64 });
 
-      // Upload to Supabase Storage in background (don't await)
+      // Upload to Azure Blob Storage in background (don't await)
       const uploadStart = Date.now();
       uploadAudio(
         audioBuffer,
