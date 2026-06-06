@@ -1,68 +1,137 @@
-import { createClient } from '@supabase/supabase-js';
+import {
+  BlobServiceClient,
+  BlobSASPermissions,
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+  type ContainerClient,
+} from '@azure/storage-blob';
 import { nanoid } from 'nanoid';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME || 'conversation-audio';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('Supabase credentials not found. Audio storage will not work.');
+type ParsedAzureConnectionString = {
+  accountName: string;
+  accountKey: string;
+};
+
+function parseAzureConnectionString(value: string): ParsedAzureConnectionString | null {
+  const parts = Object.fromEntries(
+    value
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf('=');
+        if (separatorIndex < 0) {
+          return ['', ''];
+        }
+
+        return [part.slice(0, separatorIndex), part.slice(separatorIndex + 1)];
+      })
+  ) as Record<string, string>;
+
+  const accountName = parts.AccountName;
+  const accountKey = parts.AccountKey;
+
+  if (!accountName || !accountKey) {
+    return null;
+  }
+
+  return { accountName, accountKey };
 }
 
-export const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
+function createContainerClient(): ContainerClient | null {
+  if (!connectionString) {
+    console.warn('AZURE_STORAGE_CONNECTION_STRING is not set. Audio storage will not work.');
+    return null;
+  }
+
+  try {
+    return BlobServiceClient.fromConnectionString(connectionString).getContainerClient(containerName);
+  } catch (error) {
+    console.error('Failed to initialize Azure Blob Storage client:', error);
+    return null;
+  }
+}
+
+const parsedConnectionString = connectionString ? parseAzureConnectionString(connectionString) : null;
+const storageCredential = parsedConnectionString
+  ? new StorageSharedKeyCredential(parsedConnectionString.accountName, parsedConnectionString.accountKey)
   : null;
 
-const AUDIO_BUCKET = 'conversation-audio';
+export const containerClient = createContainerClient();
+
+function buildBlobName(
+  metadata: {
+    conversationId?: string;
+    role?: 'student' | 'ai' | 'teacher';
+    timestamp?: string;
+  },
+  contentType: string,
+): string {
+  const extension = contentType === 'audio/mpeg' ? 'mp3' : 'webm';
+  const folder = metadata.conversationId || 'unknown';
+  const role = metadata.role || 'audio';
+
+  return `${folder}/${role}_${nanoid()}_${Date.now()}.${extension}`;
+}
+
+function getSignedBlobUrl(blobName: string): string {
+  if (!containerClient) {
+    throw new Error('Azure Blob container client is not initialized');
+  }
+
+  const blobClient = containerClient.getBlockBlobClient(blobName);
+
+  if (!storageCredential) {
+    console.warn('Azure storage account key not found. Returning blob URL without SAS token.');
+    return blobClient.url;
+  }
+
+  const expiry = new Date();
+  expiry.setFullYear(expiry.getFullYear() + 5);
+
+  const sasToken = generateBlobSASQueryParameters(
+    {
+      containerName,
+      blobName,
+      permissions: BlobSASPermissions.parse('r'),
+      startsOn: new Date(Date.now() - 5 * 60 * 1000),
+      expiresOn: expiry,
+    },
+    storageCredential,
+  ).toString();
+
+  return `${blobClient.url}?${sasToken}`;
+}
 
 /**
  * Initialize the audio storage bucket
- * Creates the bucket if it doesn't exist
+ * Creates the container if it doesn't exist
  */
-export async function initializeAudioBucket() {
-  if (!supabase) {
-    console.warn('Supabase client not initialized');
+export async function initializeAudioBucket(): Promise<boolean> {
+  if (!containerClient) {
+    console.warn('Azure Blob container client not initialized');
     return false;
   }
 
   try {
-    // Check if bucket exists
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    
-    if (error) {
-      console.error('Error listing buckets:', error);
-      return false;
-    }
-
-    console.log('Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
-    
-    const bucketExists = buckets?.some(bucket => bucket.name === AUDIO_BUCKET);
-
-    if (!bucketExists) {
-      console.warn(`\n⚠️  Audio bucket '${AUDIO_BUCKET}' not found.`);
-      console.warn('Available buckets:', buckets?.map(b => b.name).join(', ') || 'none');
-      console.warn('\nPlease create it manually in Supabase Dashboard:');
-      console.warn('1. Go to Storage section');
-      console.warn('2. Create new bucket named "conversation-audio"');
-      console.warn('3. Set as PUBLIC bucket');
-      console.warn('4. Restart the server\n');
-      return false;
-    }
-
-    console.log(`✅ Audio bucket '${AUDIO_BUCKET}' is ready`);
+    await containerClient.createIfNotExists();
+    console.log(`✅ Azure Blob container '${containerName}' is ready`);
     return true;
   } catch (error) {
-    console.error('Error initializing audio bucket:', error);
+    console.error('Error initializing Azure Blob container:', error);
     return false;
   }
 }
 
 /**
- * Upload audio file to Supabase Storage
+ * Upload audio file to Azure Blob Storage
  * @param audioBuffer - The audio file buffer
  * @param contentType - MIME type (e.g., 'audio/webm', 'audio/mpeg')
  * @param metadata - Optional metadata (conversationId, role, etc.)
- * @returns The public URL of the uploaded audio or null if failed
+ * @returns The signed URL of the uploaded audio or null if failed
  */
 export async function uploadAudio(
   audioBuffer: Buffer,
@@ -71,39 +140,28 @@ export async function uploadAudio(
     conversationId?: string;
     role?: 'student' | 'ai' | 'teacher';
     timestamp?: string;
-  } = {}
+  } = {},
 ): Promise<string | null> {
-  if (!supabase) {
-    console.error('Supabase client not initialized');
+  if (!containerClient) {
+    console.error('Azure Blob container client not initialized');
     return null;
   }
 
   try {
-    // Generate unique filename
-    const extension = contentType === 'audio/mpeg' ? 'mp3' : 'webm';
-    const filename = `${metadata.conversationId || 'unknown'}/${metadata.role || 'audio'}_${nanoid()}_${Date.now()}.${extension}`;
+    const blobName = buildBlobName(metadata, contentType);
+    const blobClient = containerClient.getBlockBlobClient(blobName);
 
-    // Upload file
-    const { data, error } = await supabase.storage
-      .from(AUDIO_BUCKET)
-      .upload(filename, audioBuffer, {
-        contentType,
-        cacheControl: '3600',
-        upsert: false,
-      });
+    await blobClient.uploadData(audioBuffer, {
+      blobHTTPHeaders: {
+        blobContentType: contentType,
+        blobCacheControl: '3600',
+      },
+      metadata: metadata.timestamp ? { timestamp: metadata.timestamp } : undefined,
+    });
 
-    if (error) {
-      console.error('Error uploading audio:', error);
-      return null;
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from(AUDIO_BUCKET)
-      .getPublicUrl(filename);
-
-    console.log(`Audio uploaded successfully: ${publicUrl}`);
-    return publicUrl;
+    const audioUrl = getSignedBlobUrl(blobName);
+    console.log(`Audio uploaded successfully: ${audioUrl}`);
+    return audioUrl;
   } catch (error) {
     console.error('Error in uploadAudio:', error);
     return null;
@@ -112,29 +170,24 @@ export async function uploadAudio(
 
 /**
  * Delete audio file from storage
- * @param audioUrl - The public URL of the audio to delete
+ * @param audioUrl - The signed or public URL of the audio to delete
  */
 export async function deleteAudio(audioUrl: string): Promise<boolean> {
-  if (!supabase) {
-    console.error('Supabase client not initialized');
+  if (!containerClient) {
+    console.error('Azure Blob container client not initialized');
     return false;
   }
 
   try {
-    // Extract filename from URL
     const url = new URL(audioUrl);
-    const pathParts = url.pathname.split('/');
-    const filename = pathParts.slice(pathParts.indexOf(AUDIO_BUCKET) + 1).join('/');
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const containerIndex = pathParts.indexOf(containerName);
+    const filename = containerIndex >= 0
+      ? decodeURIComponent(pathParts.slice(containerIndex + 1).join('/'))
+      : decodeURIComponent(pathParts.join('/'));
 
-    const { error } = await supabase.storage
-      .from(AUDIO_BUCKET)
-      .remove([filename]);
-
-    if (error) {
-      console.error('Error deleting audio:', error);
-      return false;
-    }
-
+    const blobClient = containerClient.getBlockBlobClient(filename);
+    await blobClient.deleteIfExists();
     return true;
   } catch (error) {
     console.error('Error in deleteAudio:', error);
