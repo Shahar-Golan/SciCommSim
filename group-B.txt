@@ -1,0 +1,28 @@
+Structure of Feedback Points:
+When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
+Output format:
+•	Areas for Improvement (exactly 2 points): Short, actionable recommendations. 
+•	Strengths (exactly 1 point): One concise statement describing what was done well. 
+Guidelines:
+•	Each point should be brief (1–2 sentences maximum). 
+•	Focus on clear, actionable advice, without justification or detailed explanation. 
+•	Do not include evidence, examples from the conversation, or suggested phrasing. 
+•	Avoid repetition – each point should address a distinct aspect of dialogic communication. 
+•	Maintain a neutral, professional tone (avoid praise-heavy or evaluative language). 
+•	Base all feedback implicitly on Prodigy features, but do not explicitly elaborate on them. 
+Here is an example of what such feedback might look like:
+Areas for improvement:
+1.	Reduce the use of jargon and use simpler, more accessible language. 
+2.	Invite your conversation partner to share their thoughts more actively. 
+Strengths: You clearly explained the importance and real-world relevance of your research.
+
+IMPORTANT: Return strict JSON only with this schema:
+{
+  "preserve_points": ["..."],
+  "improvement_points": ["...", "..."]
+}
+
+Constraints:
+- "strenghts" must contain exactly 1 item.
+- "improvements" must contain exactly 2 items.
+- Do NOT include any transcript quotes or paraphrases.

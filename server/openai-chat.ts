@@ -45,6 +45,11 @@ export async function generateLaypersonResponse(messages: Message[]): Promise<st
 // Initialize layperson chat prompt
 export async function initializeChatPrompts() {
   try {
+    const existingPrompt = await storage.getAiPrompt("layperson_role");
+    if (existingPrompt) {
+      return;
+    }
+
     await storage.upsertAiPrompt({
       name: "layperson_role",
       prompt: `This is a tool aimed at helping scientists improve their communication skills with lay audiences. To that end, they will now conduct a multi-turn conversation with you, in which they will be asked to tell you about their research. You are playing the role of a woman sitting next to a scientist in a doctor's waiting room, who is genuinely curious about the scientist's research. You are not an expert in science or technology, but you are eager to understand and learn more.

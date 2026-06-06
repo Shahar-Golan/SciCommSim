@@ -85,7 +85,6 @@ Structure of feedback points:
 For strengths:
 •	Briefly describe what was done well. 
 •	Reference a concrete example (quote or paraphrase). 
-•	Explain why this aligns with Prodigy. 
 
 For areas for improvement:
 Each point should include:
@@ -569,21 +568,34 @@ export async function generateFeedback(
 // Initialize feedback prompts
 export async function initializeFeedbackPrompts() {
   try {
-    const groupUpserts = (Object.keys(FEEDBACK_ANALYSIS_PROMPT_CONFIG) as FeedbackGroup[]).map((group) => {
-      const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group];
-      return storage.upsertAiPrompt({
-        name: config.name,
-        prompt: config.prompt,
-      });
-    });
-
-    await Promise.all([
-      ...groupUpserts,
-      storage.upsertAiPrompt({
+    const promptEntries = [
+      ...((Object.keys(FEEDBACK_ANALYSIS_PROMPT_CONFIG) as FeedbackGroup[]).map((group) => {
+        const config = FEEDBACK_ANALYSIS_PROMPT_CONFIG[group];
+        return {
+          name: config.name,
+          prompt: config.prompt,
+        };
+      })),
+      {
         name: FEEDBACK_AGENT1_PROMPT_NAME,
         prompt: DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT,
-      }),
-    ]);
+      },
+    ];
+
+    const missingPrompts: Array<{ name: string; prompt: string }> = [];
+
+    for (const entry of promptEntries) {
+      const existingPrompt = await storage.getAiPrompt(entry.name);
+      if (!existingPrompt) {
+        missingPrompts.push(entry);
+      }
+    }
+
+    if (missingPrompts.length === 0) {
+      return;
+    }
+
+    await Promise.all(missingPrompts.map((entry) => storage.upsertAiPrompt(entry)));
   } catch (error) {
     console.error("Failed to initialize feedback prompts:", error);
   }
