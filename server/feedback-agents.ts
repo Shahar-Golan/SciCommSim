@@ -7,8 +7,8 @@ export const DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT = `You are Agent-1.
 
 At the end of the conversation, provide structured feedback on my dialogic abilities based on the Prodigy framework (dimensions and features described below).
 The feedback must include:
-1. Areas for Improvement (3 points): Specific, actionable ways to improve my communication.
-2. Strengths (2 points): Two key communication skills I demonstrated effectively.
+1. Areas for Improvement (2 points): Specific, actionable ways to improve my communication.
+2. Strengths (1 point): One key communication skill I demonstrated effectively.
 
 Process for generating feedback:
 1. Review the full conversation transcript.
@@ -27,9 +27,11 @@ Process for generating feedback:
 Evidence / quoting rules:
 - NEVER quote the Layperson.
 - If an ALLOWED_STUDENT_QUOTE_SNIPPETS list is provided, you MUST ONLY use evidence quotes copied verbatim from that list.
+- If a NO_QOUTES flag is provided, do not include direct quotes or paraphrases; include evidence as a short evidence summary only.
 - If no allowed quote list is provided, include evidence as a short evidence summary (no direct quotes).
 
 Output format:
+Return json only.
 Return STRICT JSON ONLY with this schema:
 {
   "areas_for_improvement": [
@@ -53,8 +55,8 @@ Return STRICT JSON ONLY with this schema:
 }
 
 Constraints:
-- areas_for_improvement length: exactly 3.
-- strengths length: exactly 2.
+- areas_for_improvement length: exactly 2.
+- strengths length: exactly 1.
 - evidence: for each point, include transcript-grounded evidence per the rules above.
 - Do NOT include any referance about the Prodigy framework in the feedback itself. The Prodigy framework is only for you to use as a tool to analyze the conversation and generate feedback, but the feedback should be framed in natural language that a layperson could understand without knowledge of the framework.`;
 
@@ -89,12 +91,14 @@ export async function runFeedbackAgent1GlobalAnalysis(
     transcriptText: string;
     prodigyFrameworkText: string;
     allowedStudentQuoteSnippets?: string[];
+    noQuotes?: boolean;
     systemPromptOverride?: string;
   },
 ): Promise<string> {
-  const { transcriptText, prodigyFrameworkText, allowedStudentQuoteSnippets, systemPromptOverride } = params;
+  const { transcriptText, prodigyFrameworkText, allowedStudentQuoteSnippets, noQuotes, systemPromptOverride } = params;
 
   const hasQuoteSnippets = Array.isArray(allowedStudentQuoteSnippets) && allowedStudentQuoteSnippets.length > 0;
+  const hasNoQuotesFlag = noQuotes === true;
 
   const systemPrompt = (systemPromptOverride && systemPromptOverride.trim().length > 0)
     ? systemPromptOverride.trim()
@@ -106,6 +110,8 @@ export async function runFeedbackAgent1GlobalAnalysis(
       ? `\n\nALLOWED_STUDENT_QUOTE_SNIPPETS (copy verbatim; do not invent quotes):\n${formatQuoteSnippets(
           allowedStudentQuoteSnippets!,
         )}`
+      : hasNoQuotesFlag
+        ? `\n\nNO_QOUTES`
       : "",
     `\n\nTRANSCRIPT:\n${transcriptText}`,
   ].filter(Boolean);

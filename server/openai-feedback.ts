@@ -36,6 +36,11 @@ type FeedbackAnalysisResult = {
   improvement_points: string[];
 };
 
+type FeedbackAnalysisPayload = Partial<FeedbackAnalysisResult> & {
+  areas_for_improvement?: unknown;
+  strengths?: unknown;
+};
+
 // since the current Group A/B/C prompts are replaced with the experiment prompts from missions.md.
 const PRODIGY_FRAMEWORK_TEXT = loadWorkspaceTextFile("prodigy_framework2.txt");
 
@@ -49,8 +54,8 @@ THE NEXT BULLET, IN GREEN FONT, IS ONLY FOR GROUP ‘A’ (CONTROL GROUP – ‘
 Structure of Feedback Points:
 When presenting the feedback, do NOT include quotes, references, or paraphrases from the conversation transcript. Provide only the feedback points themselves, in a concise form.
 Output format:
-•	Areas for Improvement (exactly 3 points): Short, actionable recommendations. 
-•	Strengths (exactly 2 points): Two concise statements describing what was done well. 
+•	Areas for Improvement (exactly 2 points): Short, actionable recommendations. 
+•	Strengths (exactly 1 point): One concise statement describing what was done well. 
 Guidelines:
 •	Each point should be brief (1–2 sentences maximum). 
 •	Focus on clear, actionable advice, without justification or detailed explanation. 
@@ -67,12 +72,12 @@ Strengths: You clearly explained the importance and real-world relevance of your
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "...", "..."]
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT include any transcript quotes or paraphrases.`,
   },
   B: {
@@ -113,12 +118,12 @@ Additional guidelines:
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "...", "..."]
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
   C: {
@@ -159,12 +164,12 @@ Additional guidelines:
 IMPORTANT: Return strict JSON only with this schema:
 {
   "preserve_points": ["..."],
-  "improvement_points": ["...", "...", "..."]
+  "improvement_points": ["...", "..."]
 }
 
 Constraints:
-- "preserve_points" must contain exactly 2 items.
-- "improvement_points" must contain exactly 3 items.
+- "preserve_points" must contain exactly 1 item.
+- "improvement_points" must contain exactly 2 items.
 - Do NOT quote the layperson. Quotes (if used) must be copied verbatim from the student's words (do not invent quotes).`,
   },
 };
@@ -177,10 +182,10 @@ async function getFeedbackAnalysisPromptByGroup(group: FeedbackGroup): Promise<s
 
 function wrapAgent2SystemPrompt(basePrompt: string, group: FeedbackGroup): string {
   if (group === "A") {
-    return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (not the raw transcript).\n- Do NOT include transcript quotes or transcript references.\n- Generate output strictly according to the schema.`;
+    return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (not the raw transcript).\n- Do NOT include transcript quotes or transcript references.\n- Return json only and generate output strictly according to the schema.`;
   }
 
-  return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (and may include an allowed-quote list).\n- Use Agent-1 analysis as primary guidance.\n- Do NOT quote the layperson.\n- If you include quotes, they must be exact STUDENT quotes (do not invent quotes).\n- Generate output strictly according to the schema.`;
+  return `${basePrompt}\n\nIMPORTANT (Agent-2): The user message contains Agent-1 global analysis (and may include an allowed-quote list).\n- Use Agent-1 analysis as primary guidance.\n- Do NOT quote the layperson.\n- If you include quotes, they must be exact STUDENT quotes (do not invent quotes).\n- Return json only and generate output strictly according to the schema.`;
 }
 
 function normalizePoints(points: unknown, requiredCount: number, fallbackPrefix: string): string[] {
@@ -198,28 +203,39 @@ function normalizePointsRange(
   points: unknown,
   minCount: number,
   maxCount: number,
-  fallback: string,
 ): string[] {
   const min = Number.isFinite(minCount) ? Math.max(0, Math.floor(minCount)) : 0;
   const max = Number.isFinite(maxCount) ? Math.max(min, Math.floor(maxCount)) : min;
 
-  const items = Array.isArray(points)
+  return Array.isArray(points)
     ? points
         .filter((item) => typeof item === "string")
         .map((item) => item.trim())
         .filter(Boolean)
         .slice(0, max)
     : [];
-
-  while (items.length < min) {
-    items.push(min > 1 ? `${fallback} ${items.length + 1}.` : fallback);
-  }
-
-  return items;
 }
 
 function formatPoints(points: string[]): string {
   return points.map((point) => `- ${point}`).join("\n");
+}
+
+function extractFeedbackAnalysisPoints(parsed: FeedbackAnalysisPayload): FeedbackAnalysisResult {
+  const preserveSource = Array.isArray(parsed.preserve_points)
+    ? parsed.preserve_points
+    : Array.isArray(parsed.strengths)
+      ? parsed.strengths
+      : [];
+  const improvementSource = Array.isArray(parsed.improvement_points)
+    ? parsed.improvement_points
+    : Array.isArray(parsed.areas_for_improvement)
+      ? parsed.areas_for_improvement
+      : [];
+
+  return {
+    preserve_points: preserveSource.filter((item): item is string => typeof item === "string"),
+    improvement_points: improvementSource.filter((item): item is string => typeof item === "string"),
+  };
 }
 
 function normalizeForSearch(text: string): string {
@@ -411,6 +427,7 @@ export async function generateFeedback(
 
     const needsQuotes = feedbackGroup === "B" || feedbackGroup === "C";
     const allowedStudentQuoteSnippets = needsQuotes ? extractStudentQuoteSnippets(messagesForFeedback, 12) : undefined;
+    const noQuotes = feedbackGroup === "A";
 
     const agent1PromptFromDb = await storage.getAiPrompt(FEEDBACK_AGENT1_PROMPT_NAME);
     const agent1SystemPrompt = agent1PromptFromDb?.prompt || DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT;
@@ -419,6 +436,7 @@ export async function generateFeedback(
       transcriptText,
       prodigyFrameworkText: PRODIGY_FRAMEWORK_TEXT,
       allowedStudentQuoteSnippets,
+      noQuotes,
       systemPromptOverride: agent1SystemPrompt,
     });
 
@@ -491,20 +509,11 @@ export async function generateFeedback(
 
     console.log(`[AI] Feedback analysis used model '${usedModel}'.`);
 
-    const parsed = JSON.parse(response.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
+    const parsed = JSON.parse(response.choices[0].message.content || "{}") as FeedbackAnalysisPayload;
+    const initialPoints = extractFeedbackAnalysisPoints(parsed);
 
-    let preservePoints = normalizePointsRange(
-      parsed.preserve_points,
-      2,
-      2,
-      "You communicated effectively with a layperson."
-    );
-    let improvementPoints = normalizePointsRange(
-      parsed.improvement_points,
-      3,
-      3,
-      "Simplify jargon and add one concrete example to clarify your point."
-    );
+    let preservePoints = normalizePointsRange(initialPoints.preserve_points, 1, 1);
+    let improvementPoints = normalizePointsRange(initialPoints.improvement_points, 2, 2);
 
     if (feedbackGroup === "B") {
       const studentOnlyText = messages
@@ -522,19 +531,10 @@ export async function generateFeedback(
           0,
           "IMPORTANT: Do not quote the layperson. Improvement points must include at least one direct STUDENT quote copied verbatim from the transcript (do not invent quotes). Also include diagnosis + actionable suggestion; quote-only bullets are invalid."
         );
-        const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as Partial<FeedbackAnalysisResult>;
-        preservePoints = normalizePointsRange(
-          retryParsed.preserve_points,
-          2,
-          2,
-          "You communicated effectively with a layperson."
-        );
-        improvementPoints = normalizePointsRange(
-          retryParsed.improvement_points,
-          3,
-          3,
-          "Simplify jargon and add one concrete example to clarify your point."
-        );
+        const retryParsed = JSON.parse(retry.choices[0].message.content || "{}") as FeedbackAnalysisPayload;
+        const retryPoints = extractFeedbackAnalysisPoints(retryParsed);
+        preservePoints = normalizePointsRange(retryPoints.preserve_points, 1, 1);
+        improvementPoints = normalizePointsRange(retryPoints.improvement_points, 2, 2);
 
         const retryPreserveQuotesOk = groupBPreserveQuotesLookValidOrAbsent(preservePoints, studentOnlyText);
         const retryImprovementQuotesOk = groupBImprovementQuotesLookValid(improvementPoints, studentOnlyText);

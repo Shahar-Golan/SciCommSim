@@ -89,6 +89,10 @@ function resolveGoogleCredentialsPath(): string {
   );
 }
 
+function isFeedbackGroup(value: unknown): value is FeedbackGroup {
+  return value === "A" || value === "B" || value === "C";
+}
+
 function createGoogleClients() {
   const keyFilePath = resolveGoogleCredentialsPath();
 
@@ -871,6 +875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Feedback API called with:", req.body);
     try {
       const { conversationId } = req.body;
+      const requestedGroup = req.body.feedbackGroup;
       const conversation = await storage.getConversation(conversationId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
@@ -879,9 +884,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionGroup = await storage.getFeedbackGroupForSession(conversation.sessionId);
       const routingCounter = await storage.getFeedbackRoutingCounter();
       const fallbackGroup: FeedbackGroup = routingCounter % 3 === 0 ? "A" : routingCounter % 3 === 1 ? "B" : "C";
-      const feedbackGroup = sessionGroup === "A" || sessionGroup === "B" || sessionGroup === "C"
-        ? sessionGroup
-        : fallbackGroup;
+      const feedbackGroup = isFeedbackGroup(requestedGroup)
+        ? requestedGroup
+        : isFeedbackGroup(sessionGroup)
+          ? sessionGroup
+          : fallbackGroup;
       const analysisGroup: FeedbackGroup = feedbackGroup === "C" ? "B" : feedbackGroup;
       
       const messages = conversation.transcript || [];

@@ -120,20 +120,14 @@ function parseFormattedPointsBlock(value: string | null | undefined): string[] {
   return lines.length > 0 ? lines : [value.trim()];
 }
 
-function normalizePointsRange(points: string[], minCount: number, maxCount: number, fallback: string): string[] {
+function normalizePointsRange(points: string[], minCount: number, maxCount: number): string[] {
   const min = Number.isFinite(minCount) ? Math.max(0, Math.floor(minCount)) : 0;
   const max = Number.isFinite(maxCount) ? Math.max(min, Math.floor(maxCount)) : min;
 
-  const trimmed = points
+  return points
     .map((point) => point.trim())
     .filter(Boolean)
     .slice(0, max);
-
-  while (trimmed.length < min) {
-    trimmed.push(min > 1 ? `${fallback} ${trimmed.length + 1}.` : fallback);
-  }
-
-  return trimmed;
 }
 
 function getFeedbackGroupFromSummary(summary: string | null | undefined): FeedbackGroup | null {
@@ -159,15 +153,13 @@ function getDefaultGroupCState(feedback: { strengths?: string | null; improvemen
     feedback_json: {
       preserve_points: normalizePointsRange(
         preserve,
-        2,
-        2,
-        "You communicated effectively with a layperson.",
+        1,
+        1,
       ),
       improvement_points: normalizePointsRange(
         improve,
-        3,
-        3,
-        "Simplify jargon and add one concrete example to clarify your point.",
+        2,
+        2,
       ),
     },
   };
@@ -204,10 +196,10 @@ function parseGroupCState(
       : [];
 
     const preserve_points = preserve.length > 0
-      ? normalizePointsRange(preserve, 2, 2, "You communicated effectively with a layperson.")
+      ? normalizePointsRange(preserve, 1, 1)
       : fallback.feedback_json.preserve_points;
     const improvement_points = improve.length > 0
-      ? normalizePointsRange(improve, 3, 3, "Simplify jargon and add one concrete example to clarify your point.")
+      ? normalizePointsRange(improve, 2, 2)
       : fallback.feedback_json.improvement_points;
 
     const index = typeof parsed.current_index === "number" && Number.isFinite(parsed.current_index)

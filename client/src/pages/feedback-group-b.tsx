@@ -9,6 +9,19 @@ interface FeedbackGroupBProps {
   onBack?: () => void;
 }
 
+function isWordChar(char: string | undefined) {
+  return !!char && /[A-Za-z0-9]/.test(char);
+}
+
+function shouldRestartQuote(buffer: string, nextChar: string | undefined) {
+  const trimmedBuffer = buffer.trim();
+  if (trimmedBuffer.length < 8 || !isWordChar(nextChar)) {
+    return false;
+  }
+
+  return /[:;,]\s*$/.test(trimmedBuffer);
+}
+
 function renderTextWithHighlightedQuotes(text: string) {
   const normalizedText = text
     // Repair malformed contractions caused by mismatched smart quotes, e.g. I “m -> I'm
@@ -17,35 +30,67 @@ function renderTextWithHighlightedQuotes(text: string) {
     .trim();
 
   const nodes: Array<JSX.Element | string> = [];
-  // Match only balanced quote pairs to avoid malformed rendering from mixed smart quotes.
-  const quoteRegex = /"([^"\n]{2,})"|“([^”\n]{2,})”|‘([^’\n]{2,})’|'([^'\n]{6,})'/g;
+  const quoteChars = new Set(['"', "'", "\u201c", "\u201d", "\u2018", "\u2019"]);
+  let plainBuffer = "";
+  let quoteBuffer = "";
+  let inQuote = false;
 
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  for (let index = 0; index < normalizedText.length; index += 1) {
+    const char = normalizedText[index];
+    const previousChar = normalizedText[index - 1];
+    const nextChar = normalizedText[index + 1];
+    const isQuoteDelimiter = quoteChars.has(char);
+    const isApostropheInsideWord = (char === "'" || char === "\u2019") && isWordChar(previousChar) && isWordChar(nextChar);
 
-  while ((match = quoteRegex.exec(normalizedText)) !== null) {
-    const matchIndex = match.index;
-    const fullMatch = match[0] || "";
-    const quoteText = match[1] || match[2] || match[3] || match[4] || "";
-
-    if (matchIndex > lastIndex) {
-      nodes.push(normalizedText.slice(lastIndex, matchIndex));
+    if (!isQuoteDelimiter || isApostropheInsideWord) {
+      if (inQuote) {
+        quoteBuffer += char;
+      } else {
+        plainBuffer += char;
+      }
+      continue;
     }
 
-    nodes.push(
-      <span
-        key={`quote-${matchIndex}`}
-        className="inline-flex max-w-full items-baseline rounded-md border border-slate-300 bg-white/80 px-1.5 py-0.5 align-baseline italic"
-      >
-        <span className="break-words">“{quoteText}”</span>
-      </span>,
-    );
+    if (!inQuote) {
+      if (plainBuffer) {
+        nodes.push(plainBuffer);
+        plainBuffer = "";
+      }
+      inQuote = true;
+      quoteBuffer = "";
+      continue;
+    }
 
-    lastIndex = matchIndex + fullMatch.length;
+    if (shouldRestartQuote(quoteBuffer, nextChar)) {
+      plainBuffer += quoteBuffer;
+      quoteBuffer = "";
+      continue;
+    }
+
+    const trimmedQuote = quoteBuffer.trim();
+    if (trimmedQuote.length >= 2) {
+      nodes.push(
+        <span
+          key={`quote-${index}`}
+          className="inline-flex max-w-full items-baseline rounded-md border border-slate-300 bg-white/80 px-1.5 py-0.5 align-baseline italic"
+        >
+          <span className="break-words">“{trimmedQuote}”</span>
+        </span>,
+      );
+    } else {
+      plainBuffer += quoteBuffer;
+    }
+
+    quoteBuffer = "";
+    inQuote = false;
   }
 
-  if (lastIndex < normalizedText.length) {
-    nodes.push(normalizedText.slice(lastIndex));
+  if (quoteBuffer) {
+    plainBuffer += quoteBuffer;
+  }
+
+  if (plainBuffer) {
+    nodes.push(plainBuffer);
   }
 
   return nodes;
