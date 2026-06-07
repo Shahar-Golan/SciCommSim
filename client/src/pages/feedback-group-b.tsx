@@ -96,6 +96,23 @@ function renderTextWithHighlightedQuotes(text: string) {
   return nodes;
 }
 
+function renderHighlightedLines(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length <= 1) {
+    return renderTextWithHighlightedQuotes(text);
+  }
+
+  return lines.map((line, index) => (
+    <span key={`line-${index}`} className="block">
+      {renderTextWithHighlightedQuotes(line)}
+    </span>
+  ));
+}
+
 export default function FeedbackGroupB({ feedback, conversationNumber, onNext, onBack }: FeedbackGroupBProps) {
   return (
     <div className="space-y-8">
@@ -135,7 +152,7 @@ export default function FeedbackGroupB({ feedback, conversationNumber, onNext, o
               <div className="w-3 h-3 bg-blue-500 rounded-full mr-3" />
               Points for Improvement
             </h3>
-            <p className="text-blue-700 leading-relaxed whitespace-pre-wrap">{renderTextWithHighlightedQuotes(feedback.improvements)}</p>
+            <p className="text-blue-700 leading-relaxed">{renderHighlightedLines(feedback.improvements)}</p>
           </div>
         )}
       </div>

@@ -245,6 +245,19 @@ export default function FeedbackDialogue({
     return [...messages].reverse().find((message) => message.role === "teacher");
   }, [messages]);
 
+  const latestTeacherIncludesImprovementPoint = useMemo(() => {
+    if (!latestTeacherMessage) {
+      return false;
+    }
+
+    const parsed = tryParseFeedbackJson(latestTeacherMessage.content);
+    if (!parsed) {
+      return false;
+    }
+
+    return parsed.payload.stage === "improvements" || parsed.payload.improvement_points.length > 0;
+  }, [latestTeacherMessage]);
+
   const prepareFeedbackDialogue = async () => {
     try {
       setIsPreparingFeedback(true);
@@ -376,7 +389,7 @@ export default function FeedbackDialogue({
   };
 
   const handleCompleteClick = () => {
-    if (!isDialogueDone) {
+    if (!isDialogueDone && !latestTeacherIncludesImprovementPoint) {
       setShowCompleteConfirmation(true);
       return;
     }
