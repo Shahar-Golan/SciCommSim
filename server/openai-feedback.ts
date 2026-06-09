@@ -1,11 +1,7 @@
-import OpenAI from "openai";
+import { openai } from "./openai-client";
 import { storage } from "./storage";
 import type { Message } from "@shared/schema";
 import { loadWorkspaceTextFile, formatTranscriptForFeedback, runFeedbackAgent1GlobalAnalysis, DEFAULT_FEEDBACK_AGENT1_SYSTEM_PROMPT } from "./feedback-agents";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
-});
 
 const FEEDBACK_THINKING_MODEL =
   process.env.OPENAI_FEEDBACK_THINKING_MODEL || process.env.OPENAI_FEEDBACK_MODEL || "gpt-4o";

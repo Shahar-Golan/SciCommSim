@@ -1,11 +1,7 @@
-import OpenAI from "openai";
+import { openai } from "./openai-client";
 import type { Express } from "express";
 import { storage } from "./storage";
 import { parseFeedbackGroup, type FeedbackGroup } from "./openai-feedback";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key",
-});
 
 type GroupCPhase = "awaiting_expand_decision" | "discussing_point" | "completed";
 

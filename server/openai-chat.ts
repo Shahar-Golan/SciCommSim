@@ -1,10 +1,6 @@
-import OpenAI from "openai";
+import { openai } from "./openai-client";
 import { storage } from "./storage";
 import type { Message } from "@shared/schema";
-
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || "default_key"
-});
 
 export async function generateLaypersonResponse(messages: Message[]): Promise<string> {
   try {
