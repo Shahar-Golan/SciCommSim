@@ -77,6 +77,13 @@ export const feedbackRoutingState = pgTable("feedback_routing_state", {
   counter: integer("counter").notNull().default(0),
 });
 
+export const tutorialVideos = pgTable("tutorial_videos", {
+  key: varchar("key", { length: 32 }).primaryKey().notNull(),
+  blobName: text("blob_name").notNull(),
+  videoUrl: text("video_url").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Prosody async jobs per conversation
 export const prosodyJobs = pgTable("prosody_jobs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -163,6 +170,12 @@ export const insertAiPromptSchema = createInsertSchema(aiPrompts).pick({
   prompt: true,
 });
 
+export const insertTutorialVideoSchema = createInsertSchema(tutorialVideos).pick({
+  key: true,
+  blobName: true,
+  videoUrl: true,
+});
+
 export const insertProsodyJobSchema = createInsertSchema(prosodyJobs).pick({
   conversationId: true,
   status: true,
@@ -213,6 +226,9 @@ export type Feedback = typeof feedback.$inferSelect;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 
 export type FeedbackRoutingState = typeof feedbackRoutingState.$inferSelect;
+
+export type TutorialVideo = typeof tutorialVideos.$inferSelect;
+export type InsertTutorialVideo = z.infer<typeof insertTutorialVideoSchema>;
 
 export type AiPrompt = typeof aiPrompts.$inferSelect;
 export type InsertAiPrompt = z.infer<typeof insertAiPromptSchema>;

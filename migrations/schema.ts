@@ -35,6 +35,13 @@ export const feedbackRoutingState = pgTable("feedback_routing_state", {
 	counter: integer("counter").default(0).notNull(),
 });
 
+export const tutorialVideos = pgTable("tutorial_videos", {
+	key: varchar().primaryKey().notNull(),
+	blobName: text("blob_name").notNull(),
+	videoUrl: text("video_url").notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow(),
+});
+
 export const prosodyJobs = pgTable("prosody_jobs", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	conversationId: uuid("conversation_id").notNull(),

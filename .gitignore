@@ -24,6 +24,7 @@ google-credentials.json
 .local/
 tmp
 google-credentials.json
+*.mp4
 
 # Logs
 logs

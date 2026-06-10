@@ -4,6 +4,7 @@ import {
   conversations,
   feedback,
   feedbackRoutingState,
+  tutorialVideos,
   aiPrompts,
   prosodyJobs,
   prosodySegmentMetrics,
@@ -17,6 +18,8 @@ import {
   type InsertConversation,
   type Feedback,
   type InsertFeedback,
+  type TutorialVideo,
+  type InsertTutorialVideo,
   type AiPrompt,
   type InsertAiPrompt,
   type ProsodyJob,
@@ -61,6 +64,8 @@ export interface IStorage {
   getFeedbackGroupForSession(sessionId: string): Promise<string | undefined>;
   getFeedbackRoutingCounter(): Promise<number>;
   incrementFeedbackRoutingCounter(): Promise<number>;
+  getTutorialVideoByKey(key: string): Promise<TutorialVideo | undefined>;
+  upsertTutorialVideo(video: InsertTutorialVideo): Promise<TutorialVideo>;
 
   // AI Prompts
   getAiPrompt(name: string): Promise<AiPrompt | undefined>;
@@ -352,6 +357,35 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return createdState.counter;
+  }
+
+  async getTutorialVideoByKey(key: string): Promise<TutorialVideo | undefined> {
+    const [video] = await db
+      .select()
+      .from(tutorialVideos)
+      .where(eq(tutorialVideos.key, key));
+
+    return video;
+  }
+
+  async upsertTutorialVideo(video: InsertTutorialVideo): Promise<TutorialVideo> {
+    const [savedVideo] = await db
+      .insert(tutorialVideos)
+      .values({
+        ...video,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: tutorialVideos.key,
+        set: {
+          blobName: video.blobName,
+          videoUrl: video.videoUrl,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    return savedVideo;
   }
 
   async getAiPrompt(name: string): Promise<AiPrompt | undefined> {

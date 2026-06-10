@@ -9,6 +9,7 @@ import { uploadAudio, initializeAudioBucket } from "./audio-storage";
 import { runProsodyStep2ForConversation } from "./prosody-step2";
 import { runProsodyStep3ForConversation } from "./prosody-step3";
 import { runProsodyPipelineForConversation } from "./prosody-pipeline";
+import { initializeTutorialVideos, selectTutorialVideoKey } from "./tutorial-video-storage";
 import { registerFeedbackGroupCRoutes } from "./feedback-group-c-routes";
 import { hashPassword, verifyPassword } from "./password-utils";
 import { sendApprovalEmail, sendAccessRequestNotificationToAdmin } from "./approval-email";
@@ -262,6 +263,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize audio storage bucket
   await initializeAudioBucket();
+
+  // Initialize tutorial videos and cache references in DB.
+  await initializeTutorialVideos();
+
+  app.get("/api/tutorial-video", async (_req, res) => {
+    try {
+      const counter = await storage.getFeedbackRoutingCounter();
+      const selectedKey = selectTutorialVideoKey(counter);
+      const selectedVideo = await storage.getTutorialVideoByKey(selectedKey);
+
+      if (!selectedVideo) {
+        return res.status(503).json({
+          message: "Tutorial video is not available yet.",
+          counter,
+          selectedKey,
+        });
+      }
+
+      res.json({
+        tutorialUrl: selectedVideo.videoUrl,
+        counter,
+        selectedKey,
+      });
+    } catch (error) {
+      console.error("Failed to resolve tutorial video:", error);
+      res.status(500).json({ message: "Failed to resolve tutorial video" });
+    }
+  });
 
   // Student registration
   app.post("/api/students", async (req, res) => {

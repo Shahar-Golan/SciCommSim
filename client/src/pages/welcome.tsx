@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,8 @@ interface WelcomeProps {
   onTestFeedbackLogin: (email: string) => void;
 }
 
+const FALLBACK_TUTORIAL_URL = "https://youtu.be/hkC_PVCu4oE";
+
 export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: WelcomeProps) {
   const [name, setName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,14 +27,53 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
   const [requestPassword, setRequestPassword] = useState("");
   const [isRequestLoading, setIsRequestLoading] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [tutorialUrl, setTutorialUrl] = useState(FALLBACK_TUTORIAL_URL);
+  const [tutorialDialogOpen, setTutorialDialogOpen] = useState(false);
   
   // Consent form state
   const [consentFormOpen, setConsentFormOpen] = useState(false);
   const [hasReadFullForm, setHasReadFullForm] = useState(false);
   const [consentChoice, setConsentChoice] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const tutorialVideoRef = useRef<HTMLVideoElement>(null);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    const resolveTutorialVideo = async () => {
+      try {
+        const response = await fetch("/api/tutorial-video", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = await response.json();
+        if (typeof payload?.tutorialUrl === "string" && payload.tutorialUrl.length > 0) {
+          setTutorialUrl(payload.tutorialUrl);
+        }
+      } catch (error) {
+        console.error("Failed to load tutorial video URL:", error);
+      }
+    };
+
+    void resolveTutorialVideo();
+  }, []);
+
+  useEffect(() => {
+    if (!tutorialDialogOpen || !tutorialVideoRef.current) {
+      return;
+    }
+
+    const video = tutorialVideoRef.current;
+    video.currentTime = 0;
+
+    void video.play().catch((error) => {
+      console.warn("Tutorial autoplay was blocked:", error);
+    });
+  }, [tutorialDialogOpen, tutorialUrl]);
 
   const handleConsentFormScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const element = e.currentTarget;
@@ -312,20 +353,15 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
                   Please watch this short tutorial before starting your training session
                 </p>
                 <Button
-                  asChild
                   variant="outline"
                   className="border-blue-300 text-blue-700 hover:bg-blue-100 px-6 py-2"
                   data-testid="button-tutorial"
+                  onClick={() => setTutorialDialogOpen(true)}
                 >
-                  <a
-                    href="https://youtu.be/hkC_PVCu4oE"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center"
-                  >
+                  <span className="flex items-center">
                     <Play className="mr-2 h-4 w-4" />
                     Watch Tutorial
-                  </a>
+                  </span>
                 </Button>
               </div>
             </div>
@@ -569,6 +605,32 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
             >
               Close Form
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={tutorialDialogOpen} onOpenChange={setTutorialDialogOpen}>
+        <DialogContent
+          className="max-w-none w-[80vw] h-[80vh] p-0 overflow-hidden"
+          data-testid="dialog-tutorial"
+        >
+          <DialogHeader className="px-5 py-4 border-b border-slate-200">
+            <DialogTitle>Tutorial Video</DialogTitle>
+          </DialogHeader>
+
+          <div className="h-[calc(80vh-73px)] bg-black">
+            <video
+              ref={tutorialVideoRef}
+              key={tutorialUrl}
+              src={tutorialUrl}
+              controls
+              autoPlay
+              playsInline
+              className="h-full w-full"
+              data-testid="video-tutorial-player"
+            >
+              Your browser does not support video playback.
+            </video>
           </div>
         </DialogContent>
       </Dialog>
