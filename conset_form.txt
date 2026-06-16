@@ -21,13 +21,9 @@ Privacy: All information you provide will be kept confidential. To ensure your p
 
 Principal Investigators:
 
-Dr. Elad Yacobson, Faculty of Data and Decision Sciences & Faculty of Education in Science and Technology
-Dr. Tzipora Rakedzon, Department of Humanities and Arts
-Prof. Ayelet Baram-Tsabari, Faculty of Education in Science and Technology
-Prof. Ofra Amir, Faculty of Data and Decision Sciences
+Dr. Elad Yacobson, Faculty of Data and Decision Sciences & Faculty of Education in Science and Technology, Technion - Israel Institute of Technology
+Dr. Tzipora Rakedzon, Department of Humanities and Arts, Technion - Israel Institute of Technology
+Prof. Ayelet Baram-Tsabari, Faculty of Education in Science and Technology, Technion - Israel Institute of Technology
+Prof. Ofra Amir, Faculty of Data and Decision Sciences, Technion - Israel Institute of Technology
 
 If you have any questions, you may contact Dr. Elad Yacobson at: eladyacobson@campus.technion.ac.il.
-
- 
-
-

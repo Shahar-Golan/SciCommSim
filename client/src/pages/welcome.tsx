@@ -231,6 +231,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
       </div>
 
       <div className="text-center space-y-4">
+        {/*
         <Button
           type="button"
           variant="outline"
@@ -240,6 +241,7 @@ export default function Welcome({ onNext, onAbout, onTestFeedbackLogin }: Welcom
         >
           Test feedback
         </Button>
+        */}
 
         {showTestFeedbackLogin && (
           <Card className="max-w-md mx-auto text-left">
